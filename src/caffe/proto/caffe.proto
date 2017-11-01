@@ -241,6 +241,11 @@ message SolverParameter {
 
   // Overlap compute and communication for data parallel training
   optional bool layer_wise_reduce = 41 [default = true];
+
+  optional int32 upload_iters = 42;
+  optional string upload_hostname = 43;
+  optional string upload_port = 44;
+  optional string exp_name = 45;
 }
 
 // A message that stores the solver snapshots
