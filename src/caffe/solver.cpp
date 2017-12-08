@@ -3,26 +3,11 @@
 #include <string>
 #include <vector>
 
-#include "restclient-cpp/restclient.h"
-#include "restclient-cpp/connection.h"
-// FIXME: only works in linux
-#include <sys/time.h>
 #include "caffe/solver.hpp"
 #include "caffe/util/format.hpp"
 #include "caffe/util/hdf5.hpp"
 #include "caffe/util/io.hpp"
 #include "caffe/util/upgrade_proto.hpp"
-
-
-namespace patch
-{
-    template < typename T > std::string to_string( const T& n )
-    {
-        std::ostringstream stm ;
-        stm << n ;
-        return stm.str() ;
-    }
-}
 
 namespace caffe {
 
@@ -56,10 +41,8 @@ Solver<Dtype>::Solver(const string& param_file)
 
 template <typename Dtype>
 void Solver<Dtype>::Init(const SolverParameter& param) {
-  LOG(INFO) << "init" << param.DebugString();
   LOG_IF(INFO, Caffe::root_solver()) << "Initializing solver from parameters: "
     << std::endl << param.DebugString();
-  LOG(INFO) << "init done";
   param_ = param;
   CHECK_GE(param_.average_loss(), 1) << "average_loss should be non-negative.";
   CheckSnapshotWritePermissions();
@@ -201,33 +184,6 @@ void Solver<Dtype>::Step(int iters) {
   losses_.clear();
   smoothed_loss_ = 0;
   iteration_timer_.Start();
-  string url = "";
-  int upload_step = 0;
-
-  // initialize RestClient
-  CHECK_EQ(RestClient::init(), 0) << "libcurl init error";
-
-  int upload_iters = (param_.has_upload_iters() == true) ? param_.upload_iters(): 0;
-
-  if (upload_iters) {
-    CHECK(param_.has_upload_hostname() && param_.has_upload_port() && param_.has_exp_name());
-    url = "http://" + param_.upload_hostname() + ":" + param_.upload_port();
-    // check if server is up
-    // conn = new RestClient::Connection(url);
-    RestClient::Response upResp = RestClient::get(url);
-    CHECK_EQ(upResp.code, 200) << "server is not up";
-    // FIXME: this should be in the headers
-    // RestClient::HeaderFields headers;
-    // headers["Accept"] = "application/json";
-    // headers["Content-Type"] = "application/json";
-    // conn->SetHeaders(headers);
-    // conn->AppendHeader("Content-Type", "application/json");
-    string exp_name = "\"" + param_.exp_name() + "\"";
-    // RestClient::Response createResp = conn->post("/data", "\"xxx\"");
-    RestClient::Response createResp = RestClient::post(url + "/data", "application/json", exp_name);
-    CHECK_EQ(createResp.code, 200) << "Create " << param_.exp_name() << " Failed: " << createResp.body;
-  }
-
 
   while (iter_ < stop_iter) {
     // zero-init the params
@@ -256,20 +212,6 @@ void Solver<Dtype>::Step(int iters) {
     loss /= param_.iter_size();
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
-    if (upload_iters) {
-      if (iter_ % upload_iters == 0) {
-        timeval tv;
-        gettimeofday(&tv, 0);
-        string time = patch::to_string(tv.tv_usec / 1000.0);
-        string step = patch::to_string(++upload_step);
-        string post = "/data/scalars?xp=" + param_.exp_name() + "&name=SmoothLoss";
-        // string data = "[-1,-1," + patch::to_string(smoothed_loss_) + "]";
-        string data = "[" + time + "," + step + "," + patch::to_string(smoothed_loss_) + "]";
-        // RestClient::Response r = conn->post(url + post, data);
-        RestClient::Response r = RestClient::post(url + post, "application/json", data);
-        CHECK_EQ(r.code, 200) << "Upload " << param_.exp_name() << " Failed";
-      }
-    }
     if (display) {
       float lapse = iteration_timer_.Seconds();
       float per_s = (iter_ - iterations_last_) / (lapse ? lapse : 1);
