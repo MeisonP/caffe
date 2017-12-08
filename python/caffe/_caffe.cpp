@@ -270,6 +270,12 @@ bp::object BlobVec_add_blob(bp::tuple args, bp::dict kwargs) {
   return bp::object();
 }
 
+// template<typename Dtype>
+// class SGDSolverWrapper: public SGDSolver<Dtype> {
+  // public:
+    // using SGDSolver<Dtype>::GetLearningRate();
+// };
+
 template<typename Dtype>
 class SolverCallback: public Solver<Dtype>::Callback {
  protected:
@@ -499,6 +505,8 @@ BOOST_PYTHON_MODULE(_caffe) {
     .add_property("test_nets", bp::make_function(&Solver<Dtype>::test_nets,
           bp::return_internal_reference<>()))
     .add_property("iter", &Solver<Dtype>::iter)
+    .add_property("loss", &Solver<Dtype>::loss)
+    .add_property("lr", &Solver<Dtype>::learning_rate)
     .def("add_callback", &Solver_add_callback<Dtype>)
     .def("add_callback", &Solver_add_nccl)
     .def("solve", static_cast<void (Solver<Dtype>::*)(const char*)>(
@@ -514,6 +522,7 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::class_<SGDSolver<Dtype>, bp::bases<Solver<Dtype> >,
     shared_ptr<SGDSolver<Dtype> >, boost::noncopyable>(
         "SGDSolver", bp::init<string>());
+      // .def(&SGDSolver<Dtype>::GetLearningRate);
   bp::class_<NesterovSolver<Dtype>, bp::bases<Solver<Dtype> >,
     shared_ptr<NesterovSolver<Dtype> >, boost::noncopyable>(
         "NesterovSolver", bp::init<string>());
