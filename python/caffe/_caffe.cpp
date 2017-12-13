@@ -270,11 +270,25 @@ bp::object BlobVec_add_blob(bp::tuple args, bp::dict kwargs) {
   return bp::object();
 }
 
-// template<typename Dtype>
-// class SGDSolverWrapper: public SGDSolver<Dtype> {
-  // public:
-    // using SGDSolver<Dtype>::GetLearningRate();
-// };
+// expost some protected methods to make training much more transparent
+template<typename Dtype>
+class SGDSolverWrapper: public SGDSolver<Dtype> {
+  public:
+    SGDSolverWrapper(string param_file): SGDSolver<Dtype>(param_file) {}
+
+    // TODO: make average_loss a default value
+    Dtype UpdateSmoothLoss_(Dtype loss, int average_loss) {
+      this->UpdateSmoothedLoss(loss, this->iter_, average_loss);
+      return this->smoothed_loss_;
+    }
+    Dtype ForwardBackward_() {
+      return this->net_->ForwardBackward();;
+    }
+    void ApplyUpdate_(){
+      this->ApplyUpdate();
+      this->iter_++;
+    }
+};
 
 template<typename Dtype>
 class SolverCallback: public Solver<Dtype>::Callback {
@@ -538,6 +552,13 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::class_<AdamSolver<Dtype>, bp::bases<Solver<Dtype> >,
     shared_ptr<AdamSolver<Dtype> >, boost::noncopyable>(
         "AdamSolver", bp::init<string>());
+
+  bp::class_<SGDSolverWrapper<Dtype>, bp::bases<SGDSolver<Dtype> >,
+    shared_ptr<SGDSolverWrapper<Dtype> >, boost::noncopyable>(
+        "SGDSolverWrapper", bp::init<string>())
+      .def("forward_backward", &SGDSolverWrapper<Dtype>::ForwardBackward_)
+      .def("update_smoothloss", &SGDSolverWrapper<Dtype>::UpdateSmoothLoss_)
+      .def("apply_update", &SGDSolverWrapper<Dtype>::ApplyUpdate_);
 
   bp::def("get_solver", &GetSolverFromFile,
       bp::return_value_policy<bp::manage_new_object>());

@@ -12,6 +12,9 @@ import numpy as np
 
 from ._caffe import Net, SGDSolver, NesterovSolver, AdaGradSolver, \
         RMSPropSolver, AdaDeltaSolver, AdamSolver, NCCL, Timer
+
+# we use SGDSolverWrapper to expose the required method to do full training with python
+from ._caffe import SGDSolverWrapper
 import caffe.io
 
 import six
