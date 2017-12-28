@@ -284,6 +284,9 @@ class SGDSolverWrapper: public SGDSolver<Dtype> {
     Dtype ForwardBackward_() {
       return this->net_->ForwardBackward();;
     }
+    void SnapshotSolverState_(const string& model_filename) {
+      this->SnapshotSolverState(model_filename);
+    }
     void ApplyUpdate_(){
       this->ApplyUpdate();
       this->iter_++;
@@ -560,7 +563,8 @@ BOOST_PYTHON_MODULE(_caffe) {
         "SGDSolverWrapper", bp::init<string>())
       .def("forward_backward", &SGDSolverWrapper<Dtype>::ForwardBackward_)
       .def("update_smoothloss", &SGDSolverWrapper<Dtype>::UpdateSmoothLoss_)
-      .def("apply_update", &SGDSolverWrapper<Dtype>::ApplyUpdate_);
+      .def("apply_update", &SGDSolverWrapper<Dtype>::ApplyUpdate_)
+      .def("snapshot_solverstate", &SGDSolverWrapper<Dtype>::SnapshotSolverState_);
 
   bp::def("get_solver", &GetSolverFromFile,
       bp::return_value_policy<bp::manage_new_object>());
