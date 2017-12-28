@@ -216,6 +216,8 @@ class Net {
 
   void set_debug_info(const bool value) { debug_info_ = value; }
 
+  void MemoryOptimize_v2();
+
   // Helpers for Init.
   /**
    * @brief Remove layers that the user specified should be excluded given the current
