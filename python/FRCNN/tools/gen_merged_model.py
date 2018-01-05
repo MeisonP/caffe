@@ -8,6 +8,7 @@ import google.protobuf as pb
 from argparse import ArgumentParser
 import sys
 import caffe
+import google.protobuf.text_format
 
 
 def load_and_fill_biases(src_model, src_weights, dst_model, dst_weights):
@@ -237,6 +238,7 @@ def main(args):
                   [remove_empty_layers])
 
     # Store params
+    print 'saving {}'.format(args.output_weights)
     net.save(args.output_weights)
 
 
