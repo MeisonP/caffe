@@ -12,7 +12,6 @@ namespace caffe {
 template <typename Dtype>
 void SmoothL1LossLayer<Dtype>::LayerSetUp(
   const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  LOG(INFO) << "smooth l1 setup";
   SmoothL1LossParameter loss_param = this->layer_param_.smooth_l1_loss_param();
   sigma2_ = loss_param.sigma() * loss_param.sigma();
   has_weights_ = (bottom.size() >= 3);
@@ -26,7 +25,6 @@ template <typename Dtype>
 void SmoothL1LossLayer<Dtype>::Reshape(
   const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   LossLayer<Dtype>::Reshape(bottom, top);
-  LOG(INFO) << "smooth l1 reshape";
   CHECK_EQ(bottom[0]->channels(), bottom[1]->channels());
   CHECK_EQ(bottom[0]->height(), bottom[1]->height());
   CHECK_EQ(bottom[0]->width(), bottom[1]->width());
