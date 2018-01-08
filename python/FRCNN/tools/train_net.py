@@ -108,5 +108,4 @@ if __name__ == '__main__':
     print 'Output will be saved to `{:s}`'.format(output_dir)
 
     train_net(args.solver, roidb, output_dir,
-              pretrained_model=args.pretrained_model,
-              max_iters=args.max_iters)
+              pretrained_model=args.pretrained_model)

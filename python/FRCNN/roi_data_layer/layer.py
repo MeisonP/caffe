@@ -88,7 +88,7 @@ class RoIDataLayer(caffe.Layer):
         """Setup the RoIDataLayer."""
 
         # parse the layer parameter string, which must be valid YAML
-        layer_params = yaml.load(self.param_str_)
+        layer_params = yaml.load(self.param_str)
 
         self._num_classes = layer_params['num_classes']
 
@@ -168,7 +168,7 @@ class OHEMDataLayer(caffe.Layer):
         """Setup the OHEMDataLayer."""
 
         # parse the layer parameter string, which must be valid YAML
-        layer_params = yaml.load(self.param_str_)
+        layer_params = yaml.load(self.param_str)
 
         self._num_classes = layer_params['num_classes']
 
@@ -184,7 +184,7 @@ class OHEMDataLayer(caffe.Layer):
 
         self._name_to_top_map = {}
 
-        assert cfg.TRAIN.HAS_RPN == False
+        assert cfg.TRAIN.HAS_RPN == True
         # data blob: holds a batch of N images, each with 3 channels
         idx = 0
         # rois blob: holds R regions of interest, each is a 5-tuple
@@ -239,7 +239,7 @@ class OHEMDataLayer(caffe.Layer):
         flt_min = np.finfo(float).eps
         # classification loss
         loss = [ -1 * np.log(max(x, flt_min)) \
-            for x in [cls_prob[i,label] for i, label in enumerate(labels)]]
+            for x in [cls_prob[i,int(label)] for i, label in enumerate(labels)]]
 
         if cfg.TRAIN.BBOX_REG:
             # bounding-box regression loss

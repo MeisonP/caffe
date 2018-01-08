@@ -22,7 +22,7 @@ class ProposalTargetLayer(caffe.Layer):
     """
 
     def setup(self, bottom, top):
-        layer_params = yaml.load(self.param_str_)
+        layer_params = yaml.load(self.param_str)
         self._num_classes = layer_params['num_classes']
 
         # sampled rois (0, x1, y1, x2, y2)
@@ -121,7 +121,7 @@ def _get_bbox_regression_labels(bbox_target_data, num_classes):
     bbox_inside_weights = np.zeros(bbox_targets.shape, dtype=np.float32)
     inds = np.where(clss > 0)[0]
     for ind in inds:
-        cls = clss[ind]
+        cls = int(clss[ind])
         start = 4 * cls
         end = start + 4
         bbox_targets[ind, start:end] = bbox_target_data[ind, 1:]
@@ -160,28 +160,31 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     fg_inds = np.where(max_overlaps >= cfg.TRAIN.FG_THRESH)[0]
     # Guard against the case when an image has fewer than fg_rois_per_image
     # foreground RoIs
-    fg_rois_per_this_image = min(fg_rois_per_image, fg_inds.size)
-    # Sample foreground regions without replacement
-    if fg_inds.size > 0:
-        fg_inds = npr.choice(fg_inds, size=fg_rois_per_this_image, replace=False)
+
+    if not cfg.TRAIN.USE_OHEM:
+        fg_rois_per_this_image = int(min(fg_rois_per_image, fg_inds.size))
+        # Sample foreground regions without replacement
+        if fg_inds.size > 0:
+            fg_inds = npr.choice(fg_inds, size=fg_rois_per_this_image, replace=False)
 
     # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
     bg_inds = np.where((max_overlaps < cfg.TRAIN.BG_THRESH_HI) &
                        (max_overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
     # Compute number of background RoIs to take from this image (guarding
     # against there being fewer than desired)
-    bg_rois_per_this_image = rois_per_image - fg_rois_per_this_image
-    bg_rois_per_this_image = min(bg_rois_per_this_image, bg_inds.size)
-    # Sample background regions without replacement
-    if bg_inds.size > 0:
-        bg_inds = npr.choice(bg_inds, size=bg_rois_per_this_image, replace=False)
+    if not cfg.TRAIN.USE_OHEM:
+        bg_rois_per_this_image = rois_per_image - fg_rois_per_this_image
+        bg_rois_per_this_image = int(min(bg_rois_per_this_image, bg_inds.size))
+        # Sample background regions without replacement
+        if bg_inds.size > 0:
+            bg_inds = npr.choice(bg_inds, size=bg_rois_per_this_image, replace=False)
 
     # The indices that we're selecting (both fg and bg)
     keep_inds = np.append(fg_inds, bg_inds)
     # Select sampled values from various arrays:
     labels = labels[keep_inds]
     # Clamp labels for the background RoIs to 0
-    labels[fg_rois_per_this_image:] = 0
+    labels[len(fg_inds):] = 0
     rois = all_rois[keep_inds]
 
     bbox_target_data = _compute_targets(
