@@ -6,11 +6,33 @@
 
 #include "caffe/common.hpp"
 #include "caffe/util/rng.hpp"
+#include "caffe/util/fp16.hpp"
 
 namespace caffe {
 
 // Make sure each thread can have different values.
 static boost::thread_specific_ptr<Caffe> thread_instance_;
+
+// device *Caffe::GetDevice(int id, bool listId) {
+  // if (listId) {
+    // return
+        // id == -1 ?
+            // Get().default_device_ :
+            // Get().devices_[id % Get().devices_.size()].get();
+  // } else {
+    // for (int i = 0; i < Get().devices_.size(); ++i) {
+      // device* device = Get().devices_[i].get();
+      // if (device->id() == id) {
+        // return device;
+      // }
+    // }
+    // return GetDefaultDevice();
+  // }
+// }
+
+// device *Caffe::GetDefaultDevice() {
+  // return Get().default_device_;
+// }
 
 Caffe& Caffe::Get() {
   if (!thread_instance_.get()) {
@@ -148,11 +170,17 @@ void Caffe::set_random_seed(const unsigned int seed) {
 }
 
 void Caffe::SetDevice(const int device_id) {
+  // if (Get().devices_.size() == 0) {
+    // // No device has been initialized so far
+    // Caffe::SetDevices(std::vector<int> { device_id });
+  // }
   int current_device;
   CUDA_CHECK(cudaGetDevice(&current_device));
   if (current_device == device_id) {
+    // Get().default_device_ = GetDevice(current_device, true);
     return;
   }
+  // Get().default_device_ = GetDevice(device_id, true);
   // The call to cudaSetDevice must come before any calls to Get, which
   // may perform initialization using the GPU.
   CUDA_CHECK(cudaSetDevice(device_id));

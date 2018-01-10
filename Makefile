@@ -322,6 +322,16 @@ else
 	COMMON_FLAGS += -DNDEBUG -O2 -std=c++11
 endif
 
+# Coverage
+# ifeq ($(COVERAGE), 1)
+	# COMMON_FLAGS += -fprofile-arcs -ftest-coverage --coverage
+	# LIBRARIES += gcov
+	# LDFLAGS += --coverage
+# endif
+# COMMON_FLAGS += -fprofile-arcs -ftest-coverage --coverage
+LIBRARIES += gcov
+LDFLAGS += --coverage
+
 # cuDNN acceleration configuration.
 ifeq ($(USE_CUDNN), 1)
 	LIBRARIES += cudnn
@@ -408,6 +418,9 @@ LIBRARY_DIRS += $(LIB_BUILD_DIR)
 
 # Automatic dependency generation (nvcc is handled separately)
 CXXFLAGS += -MMD -MP
+
+# Coverage
+CXXFLAGS += -fprofile-arcs -ftest-coverage
 
 # Complete build flags.
 COMMON_FLAGS += $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
@@ -570,6 +583,7 @@ $(ALL_BUILD_DIRS): | $(BUILD_DIR_LINK)
 
 $(DYNAMIC_NAME): $(OBJS) | $(LIB_BUILD_DIR)
 	@ echo LD -o $@
+	@ echo $(Q)$(CXX) -shared -o $@ $(OBJS) $(VERSIONFLAGS) $(LINKFLAGS) $(LDFLAGS)
 	$(Q)$(CXX) -shared -o $@ $(OBJS) $(VERSIONFLAGS) $(LINKFLAGS) $(LDFLAGS)
 	@ cd $(BUILD_DIR)/lib; rm -f $(DYNAMIC_NAME_SHORT);   ln -s $(DYNAMIC_VERSIONED_NAME_SHORT) $(DYNAMIC_NAME_SHORT)
 

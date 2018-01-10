@@ -34,7 +34,10 @@ class DataTransformTest : public ::testing::Test {
  protected:
   DataTransformTest()
       : seed_(1701),
-      num_iter_(10) {}
+      num_iter_(10),
+      channels_(2),
+      height_(10),
+      width_(10) {}
 
   int NumSequenceMatches(const TransformationParameter transform_param,
       const Datum& datum, Phase phase) {
@@ -69,11 +72,53 @@ class DataTransformTest : public ::testing::Test {
     return num_sequence_matches;
   }
 
+  void FillAnnotatedDatum(const int label, const bool unique_pixels,
+                          const bool use_rich_annotation,
+                          AnnotatedDatum_AnnotationType type,
+                          AnnotatedDatum* anno_datum) {
+    Datum* datum = anno_datum->mutable_datum();
+    // Fill datum.
+    datum->set_channels(channels_);
+    datum->set_height(height_);
+    datum->set_width(width_);
+    int size = channels_ * height_ * width_;
+    std::string* data = datum->mutable_data();
+    for (int j = 0; j < size; ++j) {
+      int elem = unique_pixels ? j : label;
+      data->push_back(static_cast<uint8_t>(elem));
+    }
+    // Fill annotation.
+    if (use_rich_annotation) {
+      anno_datum->set_type(type);
+      AnnotationGroup* anno_group = anno_datum->add_annotation_group();
+      anno_group->set_group_label(label);
+      for (int a = 0; a < 9; ++a) {
+        Annotation* anno = anno_group->add_annotation();
+        anno->set_instance_id(a);
+        if (type == AnnotatedDatum_AnnotationType_BBOX) {
+          NormalizedBBox* bbox = anno->mutable_bbox();
+          bbox->set_xmin(a*0.1);
+          bbox->set_ymin(a*0.1);
+          bbox->set_xmax(std::min(a*0.1 + 0.2, 1.0));
+          bbox->set_ymax(std::min(a*0.1 + 0.2, 1.0));
+        }
+      }
+    } else {
+      datum->set_label(label);
+    }
+  }
+
+
   int seed_;
   int num_iter_;
+  int channels_;
+  int height_;
+  int width_;
+
 };
 
 TYPED_TEST_CASE(DataTransformTest, TestDtypes);
+
 
 TYPED_TEST(DataTransformTest, TestEmptyTransform) {
   TransformationParameter transform_param;
@@ -337,6 +382,108 @@ TYPED_TEST(DataTransformTest, TestMeanFile) {
   transformer.Transform(datum, &blob);
   for (int j = 0; j < blob.count(); ++j) {
     EXPECT_EQ(blob.cpu_data()[j], 0);
+  }
+}
+
+TYPED_TEST(DataTransformTest, TestRichLabel) {
+  TransformationParameter transform_param;
+  const bool unique_pixels = false;  // all pixels the same equal to label
+  const int label = 0;
+  const bool use_rich_annotation = true;
+  AnnotatedDatum_AnnotationType type = AnnotatedDatum_AnnotationType_BBOX;
+  const float eps = 1e-6;
+
+  AnnotatedDatum anno_datum;
+  this->FillAnnotatedDatum(label, unique_pixels, use_rich_annotation, type,
+                           &anno_datum);
+  Blob<TypeParam>* blob = new Blob<TypeParam>(1, this->channels_,
+                                              this->height_, this->width_);
+  vector<AnnotationGroup> transformed_anno_vec;
+
+  DataTransformer<TypeParam>* transformer =
+      new DataTransformer<TypeParam>(transform_param, TEST);
+  transformer->InitRand();
+  transformer->Transform(anno_datum, blob, &transformed_anno_vec);
+
+  EXPECT_EQ(transformed_anno_vec.size(), 1);
+  AnnotationGroup& anno_group = transformed_anno_vec[0];
+  EXPECT_EQ(anno_group.group_label(), label);
+  EXPECT_EQ(anno_group.annotation_size(), 9);
+  for (int a = 0; a < 9; ++a) {
+    const Annotation& anno = anno_group.annotation(a);
+    EXPECT_EQ(anno.instance_id(), a);
+    EXPECT_NEAR(anno.bbox().xmin(), a*0.1, eps);
+    EXPECT_NEAR(anno.bbox().ymin(), a*0.1, eps);
+    EXPECT_NEAR(anno.bbox().xmax(), a*0.1 + 0.2, eps);
+    EXPECT_NEAR(anno.bbox().ymax(), a*0.1 + 0.2, eps);
+  }
+}
+
+TYPED_TEST(DataTransformTest, TestRichLabelCrop) {
+  TransformationParameter transform_param;
+  const bool unique_pixels = false;  // all pixels the same equal to label
+  const int label = 0;
+  const bool use_rich_annotation = true;
+  AnnotatedDatum_AnnotationType type = AnnotatedDatum_AnnotationType_BBOX;
+  const float eps = 1e-6;
+  const int crop_size = 1;
+
+  AnnotatedDatum anno_datum;
+  this->FillAnnotatedDatum(label, unique_pixels, use_rich_annotation, type,
+                           &anno_datum);
+  Blob<TypeParam>* blob = new Blob<TypeParam>(1, this->channels_,
+                                              crop_size, crop_size);
+  vector<AnnotationGroup> transformed_anno_vec;
+
+  transform_param.set_crop_size(crop_size);
+  DataTransformer<TypeParam>* transformer =
+      new DataTransformer<TypeParam>(transform_param, TEST);
+  transformer->InitRand();
+  transformer->Transform(anno_datum, blob, &transformed_anno_vec);
+
+  EXPECT_EQ(transformed_anno_vec.size(), 1);
+  AnnotationGroup& anno_group = transformed_anno_vec[0];
+  EXPECT_EQ(anno_group.group_label(), label);
+  EXPECT_EQ(anno_group.annotation_size(), 2);
+  for (int a = 0; a < anno_group.annotation_size(); ++a) {
+    const Annotation& anno = anno_group.annotation(a);
+    EXPECT_NEAR(anno.bbox().xmin(), 0., eps);
+    EXPECT_NEAR(anno.bbox().ymin(), 0., eps);
+    EXPECT_NEAR(anno.bbox().xmax(), 1., eps);
+    EXPECT_NEAR(anno.bbox().ymax(), 1., eps);
+  }
+}
+
+
+
+TYPED_TEST(DataTransformTest, TestRichLabelCropMirror) {
+  TransformationParameter transform_param;
+  const bool unique_pixels = false;  // all pixels the same equal to label
+  const int label = 0;
+  const bool use_rich_annotation = true;
+  AnnotatedDatum_AnnotationType type = AnnotatedDatum_AnnotationType_BBOX;
+  const int crop_size = 4;
+
+  AnnotatedDatum anno_datum;
+  this->FillAnnotatedDatum(label, unique_pixels, use_rich_annotation, type,
+                           &anno_datum);
+  Blob<TypeParam>* blob = new Blob<TypeParam>(1, this->channels_,
+                                              crop_size, crop_size);
+
+  transform_param.set_crop_size(crop_size);
+  transform_param.set_mirror(true);
+  DataTransformer<TypeParam>* transformer =
+      new DataTransformer<TypeParam>(transform_param, TEST);
+  transformer->InitRand();
+  // bool do_mirror;
+  for (int iter = 0; iter < 10; ++iter) {
+    vector<AnnotationGroup> transformed_anno_vec;
+    transformer->Transform(anno_datum, blob, &transformed_anno_vec);
+
+    EXPECT_EQ(transformed_anno_vec.size(), 1);
+    AnnotationGroup& anno_group = transformed_anno_vec[0];
+    EXPECT_EQ(anno_group.group_label(), label);
+    EXPECT_EQ(anno_group.annotation_size(), 5);
   }
 }
 

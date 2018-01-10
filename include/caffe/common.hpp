@@ -17,6 +17,8 @@
 #include <vector>
 
 #include "caffe/util/device_alternate.hpp"
+#include "caffe/util/fp16.hpp"
+// #include "caffe/device.hpp"
 
 // Convert macro to string
 #define STRINGIFY(m) #m
@@ -167,6 +169,11 @@ class Caffe {
   inline static void set_multiprocess(bool val) { Get().multiprocess_ = val; }
   inline static bool root_solver() { return Get().solver_rank_ == 0; }
 
+  // Get the default device
+  // static device *GetDefaultDevice();
+  // static device *GetCPUDevice();
+
+
  protected:
 #ifndef CPU_ONLY
   cublasHandle_t cublas_handle_;
@@ -180,6 +187,13 @@ class Caffe {
   int solver_count_;
   int solver_rank_;
   bool multiprocess_;
+
+  // The shared ptrs are being referenced on every thread,
+  // while the default device will be handled thread local
+  // static vector<shared_ptr< device> > devices_;
+  // shared_ptr<device> cpu_device_;
+  // device* default_device_;
+
 
  private:
   // The private constructor to avoid duplicate instantiation.
