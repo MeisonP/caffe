@@ -21,6 +21,17 @@ and step-by-step examples.
 - [OpenCL Caffe](https://github.com/BVLC/caffe/tree/opencl) e.g. for AMD or Intel devices.
 - [Windows Caffe](https://github.com/BVLC/caffe/tree/windows)
 
+## Coverage
+generate code Coverage report
+
+```
+cd $CAFFE_ROOT
+# this will generate test_caffe_main.gcno and  test_caffe_main.gcda
+make runtest
+lcov -d . -t "test report" -o "hello_test.info" -b . -c
+genhtml -o result hello_test.info
+```
+
 ## Community
 
 [![Join the chat at https://gitter.im/BVLC/caffe](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/BVLC/caffe?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)

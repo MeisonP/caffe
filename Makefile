@@ -322,6 +322,11 @@ else
 	COMMON_FLAGS += -DNDEBUG -O2
 endif
 
+# Coverage
+LIBRARIES += gcov
+LDFLAGS += --coverage
+CXXFLAGS += -fprofile-arcs -ftest-coverage
+
 # cuDNN acceleration configuration.
 ifeq ($(USE_CUDNN), 1)
 	LIBRARIES += cudnn
