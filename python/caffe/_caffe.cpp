@@ -270,6 +270,27 @@ bp::object BlobVec_add_blob(bp::tuple args, bp::dict kwargs) {
   return bp::object();
 }
 
+// expost some protected methods to make training much more transparent
+template<typename Dtype>
+class SGDSolverWrapper: public SGDSolver<Dtype> {
+  public:
+    SGDSolverWrapper(string param_file): SGDSolver<Dtype>(param_file) {}
+
+    // TODO: make average_loss a default value
+    Dtype UpdateSmoothLoss_(Dtype loss, int start_iter, int average_loss) {
+      this->UpdateSmoothedLoss(loss, start_iter, average_loss);
+      return this->smoothed_loss_;
+    }
+    Dtype ForwardBackward_() {
+      return this->net_->ForwardBackward();;
+    }
+    void ApplyUpdate_(){
+      this->ApplyUpdate();
+      this->iter_++;
+    }
+};
+
+
 template<typename Dtype>
 class SolverCallback: public Solver<Dtype>::Callback {
  protected:
@@ -489,6 +510,8 @@ BOOST_PYTHON_MODULE(_caffe) {
 
   bp::class_<SolverParameter>("SolverParameter", bp::no_init)
     .add_property("max_iter", &SolverParameter::max_iter)
+    .add_property("iter_size", &SolverParameter::iter_size)
+    .add_property("average_loss", &SolverParameter::average_loss)
     .add_property("display", &SolverParameter::display)
     .add_property("layer_wise_reduce", &SolverParameter::layer_wise_reduce);
   bp::class_<LayerParameter>("LayerParameter", bp::no_init);
@@ -499,6 +522,8 @@ BOOST_PYTHON_MODULE(_caffe) {
     .add_property("test_nets", bp::make_function(&Solver<Dtype>::test_nets,
           bp::return_internal_reference<>()))
     .add_property("iter", &Solver<Dtype>::iter)
+    .add_property("loss", &Solver<Dtype>::loss)
+    .add_property("lr", &Solver<Dtype>::learning_rate)
     .def("add_callback", &Solver_add_callback<Dtype>)
     .def("add_callback", &Solver_add_nccl)
     .def("solve", static_cast<void (Solver<Dtype>::*)(const char*)>(
@@ -529,6 +554,13 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::class_<AdamSolver<Dtype>, bp::bases<Solver<Dtype> >,
     shared_ptr<AdamSolver<Dtype> >, boost::noncopyable>(
         "AdamSolver", bp::init<string>());
+
+  bp::class_<SGDSolverWrapper<Dtype>, bp::bases<SGDSolver<Dtype> >,
+    shared_ptr<SGDSolverWrapper<Dtype> >, boost::noncopyable>(
+        "SGDSolverWrapper", bp::init<string>())
+      .def("forward_backward", &SGDSolverWrapper<Dtype>::ForwardBackward_)
+      .def("update_smoothloss", &SGDSolverWrapper<Dtype>::UpdateSmoothLoss_)
+      .def("apply_update", &SGDSolverWrapper<Dtype>::ApplyUpdate_);
 
   bp::def("get_solver", &GetSolverFromFile,
       bp::return_value_policy<bp::manage_new_object>());

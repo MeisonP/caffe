@@ -32,6 +32,30 @@ lcov -d . -t "test report" -o "hello_test.info" -b . -c
 genhtml -o result hello_test.info
 ```
 
+## test
+
+```
+# run all the test
+make runtest
+# run a specific test
+# 0 means for cpu<float> test
+# 1 means for cpu<double> test
+# 2 means for gpu<float> test
+# 3 means for gpu<double> test
+make runtest GTEST_FILTER="LayerFactoryTest/0.TestCreateLayer"
+```
+
+## pytest
+
+```
+cd $CAFFE_ROOT
+cd python
+# run all the test
+python -m pytest caffe/test
+# run a specific test
+python -m pytest caffe/test/test_solver.py
+```
+
 ## Community
 
 [![Join the chat at https://gitter.im/BVLC/caffe](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/BVLC/caffe?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)

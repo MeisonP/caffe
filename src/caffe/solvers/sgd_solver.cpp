@@ -89,6 +89,7 @@ Dtype SGDSolver<Dtype>::GetLearningRate() {
   } else {
     LOG(FATAL) << "Unknown learning rate policy: " << lr_policy;
   }
+  this->learning_rate_ = rate;
   return rate;
 }
 

@@ -73,6 +73,8 @@ class Solver {
     return test_nets_;
   }
   int iter() const { return iter_; }
+  Dtype loss() const { return smoothed_loss_; }
+  Dtype learning_rate() const { return learning_rate_; }
 
   // Invoked at specific points during an iteration
   class Callback {
@@ -117,6 +119,7 @@ class Solver {
   vector<Callback*> callbacks_;
   vector<Dtype> losses_;
   Dtype smoothed_loss_;
+  Dtype learning_rate_;
 
   // A function that can be set by a client of the Solver to provide indication
   // that it wants a snapshot saved and/or to exit early.
