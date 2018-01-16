@@ -419,6 +419,7 @@ message LayerParameter {
 
   //ssd
   optional PriorBoxParameter prior_box_param = 1002;
+  optional PermuteParameter permute_param = 1003;
 
 }
 
@@ -1485,4 +1486,11 @@ message PriorBoxParameter {
 
   // Offset to the top left corner of each cell.
   optional float offset = 13 [default = 0.5];
+}
+
+message PermuteParameter {
+  // The new orders of the axes of data. Notice it should be with
+  // in the same range as the input data, and it starts from 0.
+  // Do not provide repeated order.
+  repeated uint32 order = 1;
 }
