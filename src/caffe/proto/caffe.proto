@@ -421,6 +421,7 @@ message LayerParameter {
   optional PriorBoxParameter prior_box_param = 1002;
   optional PermuteParameter permute_param = 1003;
   optional MultiBoxLossParameter multibox_loss_param = 1004;
+  optional AnnotatedDataParameter annotated_data_param = 1005;
 
 }
 
@@ -475,6 +476,9 @@ message TransformationParameter {
   optional ExpansionParameter expand_param = 14;
   // Constraint for emitting the annotation after transformation.
   optional EmitConstraint emit_constraint = 10;
+
+  optional uint32 crop_h = 11 [default = 0];
+  optional uint32 crop_w = 12 [default = 0];
 }
 
 // Message that stores parameters shared by loss layers
@@ -1736,3 +1740,94 @@ message SaltPepperParameter {
   optional float fraction = 1 [default = 0];
   repeated float value = 2;
 }
+
+// Sample a bbox in the normalized space [0, 1] with provided constraints.
+message Sampler {
+  // Minimum scale of the sampled bbox.
+  optional float min_scale = 1 [default = 1.];
+  // Maximum scale of the sampled bbox.
+  optional float max_scale = 2 [default = 1.];
+
+  // Minimum aspect ratio of the sampled bbox.
+  optional float min_aspect_ratio = 3 [default = 1.];
+  // Maximum aspect ratio of the sampled bbox.
+  optional float max_aspect_ratio = 4 [default = 1.];
+}
+
+// Constraints for selecting sampled bbox.
+message SampleConstraint {
+  // Minimum Jaccard overlap between sampled bbox and all bboxes in
+  // AnnotationGroup.
+  optional float min_jaccard_overlap = 1;
+  // Maximum Jaccard overlap between sampled bbox and all bboxes in
+  // AnnotationGroup.
+  optional float max_jaccard_overlap = 2;
+
+  // Minimum coverage of sampled bbox by all bboxes in AnnotationGroup.
+  optional float min_sample_coverage = 3;
+  // Maximum coverage of sampled bbox by all bboxes in AnnotationGroup.
+  optional float max_sample_coverage = 4;
+
+  // Minimum coverage of all bboxes in AnnotationGroup by sampled bbox.
+  optional float min_object_coverage = 5;
+  // Maximum coverage of all bboxes in AnnotationGroup by sampled bbox.
+  optional float max_object_coverage = 6;
+}
+
+
+// Sample a batch of bboxes with provided constraints.
+message BatchSampler {
+  // Use original image as the source for sampling.
+  optional bool use_original_image = 1 [default = true];
+
+  // Constraints for sampling bbox.
+  optional Sampler sampler = 2;
+
+  // Constraints for determining if a sampled bbox is positive or negative.
+  optional SampleConstraint sample_constraint = 3;
+
+  // If provided, break when found certain number of samples satisfing the
+  // sample_constraint.
+  optional uint32 max_sample = 4;
+
+  // Maximum number of trials for sampling to avoid infinite loop.
+  optional uint32 max_trials = 5 [default = 100];
+}
+
+
+// Annotation for each object instance.
+message Annotation {
+  optional int32 instance_id = 1 [default = 0];
+  optional NormalizedBBox bbox = 2;
+}
+
+// Group of annotations for a particular label.
+message AnnotationGroup {
+  optional int32 group_label = 1;
+  repeated Annotation annotation = 2;
+}
+
+// An extension of Datum which contains "rich" annotations.
+message AnnotatedDatum {
+  enum AnnotationType {
+    BBOX = 0;
+  }
+  optional Datum datum = 1;
+  // If there are "rich" annotations, specify the type of annotation.
+  // Currently it only supports bounding box.
+  // If there are no "rich" annotations, use label in datum instead.
+  optional AnnotationType type = 2;
+  // Each group contains annotation for a particular class.
+  repeated AnnotationGroup annotation_group = 3;
+}
+
+message AnnotatedDataParameter {
+  // Define the sampler.
+  repeated BatchSampler batch_sampler = 1;
+  // Store label name and label id in LabelMap format.
+  optional string label_map_file = 2;
+  // If provided, it will replace the AnnotationType stored in each
+  // AnnotatedDatum.
+  optional AnnotatedDatum.AnnotationType anno_type = 3;
+}
+
