@@ -62,7 +62,7 @@ class AnnotatedDataLayerTest : public MultiDeviceTest<TypeParam> {
     spatial_dim_ = height_ * width_;
     size_ = channels_ * spatial_dim_;
     filename_.reset(new string());
-    MakeTempDir(filename_.get());
+    GetTempDirname(filename_.get());
     *filename_ += "/db";
     blob_top_vec_.push_back(blob_top_data_);
     blob_top_vec_.push_back(blob_top_label_);
@@ -84,7 +84,7 @@ class AnnotatedDataLayerTest : public MultiDeviceTest<TypeParam> {
     unique_annotation_ = unique_annotation;
     use_rich_annotation_ = use_rich_annotation;
     type_ = type;
-    MakeTempDir(filename_.get());
+    GetTempDirname(filename_.get());
     LOG(INFO) << "Using temporary dataset " << *filename_;
     scoped_ptr<db::DB> db(db::GetDB(backend));
     db->Open(*filename_, db::NEW);
@@ -223,7 +223,7 @@ class AnnotatedDataLayerTest : public MultiDeviceTest<TypeParam> {
                    bool unique_annotation, bool use_rich_annotation,
                    AnnotatedDatum_AnnotationType type) {
     // Save data of varying shapes.
-    MakeTempDir(filename_.get());
+    GetTempDirname(filename_.get());
     LOG(INFO) << "Using temporary dataset " << *filename_;
     scoped_ptr<db::DB> db(db::GetDB(backend));
     db->Open(*filename_, db::NEW);
