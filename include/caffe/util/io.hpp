@@ -130,6 +130,20 @@ bool DecodeDatumNative(Datum* datum);
 bool DecodeDatum(Datum* datum, bool is_color);
 
 #ifdef USE_OPENCV
+
+// ssd
+void EncodeCVMatToDatum(const cv::Mat& cv_img, const string& encoding,
+                        Datum* datum);
+
+void GetImageSize(const string& filename, int* height, int* width);
+
+cv::Mat ReadImageToCVMat(const string& filename, const int height,
+    const int width, const int min_dim, const int max_dim, const bool is_color);
+
+bool ReadImageToDatum(const string& filename, const int label,
+    const int height, const int width, const int min_dim, const int max_dim,
+    const bool is_color, const std::string & encoding, Datum* datum);
+
 cv::Mat ReadImageToCVMat(const string& filename,
     const int height, const int width, const bool is_color);
 

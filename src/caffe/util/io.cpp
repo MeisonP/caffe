@@ -70,6 +70,56 @@ void WriteProtoToBinaryFile(const Message& proto, const char* filename) {
 }
 
 #ifdef USE_OPENCV
+
+void GetImageSize(const string& filename, int* height, int* width) {
+  cv::Mat cv_img = cv::imread(filename);
+  if (!cv_img.data) {
+    LOG(ERROR) << "Could not open or find file " << filename;
+    return;
+  }
+  *height = cv_img.rows;
+  *width = cv_img.cols;
+}
+
+
+cv::Mat ReadImageToCVMat(const string& filename, const int height,
+    const int width, const int min_dim, const int max_dim,
+    const bool is_color) {
+  cv::Mat cv_img;
+  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
+    CV_LOAD_IMAGE_GRAYSCALE);
+  cv::Mat cv_img_origin = cv::imread(filename, cv_read_flag);
+  if (!cv_img_origin.data) {
+    LOG(ERROR) << "Could not open or find file " << filename;
+    return cv_img_origin;
+  }
+  if (min_dim > 0 || max_dim > 0) {
+    int num_rows = cv_img_origin.rows;
+    int num_cols = cv_img_origin.cols;
+    int min_num = std::min(num_rows, num_cols);
+    int max_num = std::max(num_rows, num_cols);
+    float scale_factor = 1;
+    if (min_dim > 0 && min_num < min_dim) {
+      scale_factor = static_cast<float>(min_dim) / min_num;
+    }
+    if (max_dim > 0 && static_cast<int>(scale_factor * max_num) > max_dim) {
+      // Make sure the maximum dimension is less than max_dim.
+      scale_factor = static_cast<float>(max_dim) / max_num;
+    }
+    if (scale_factor == 1) {
+      cv_img = cv_img_origin;
+    } else {
+      cv::resize(cv_img_origin, cv_img, cv::Size(0, 0),
+                 scale_factor, scale_factor);
+    }
+  } else if (height > 0 && width > 0) {
+    cv::resize(cv_img_origin, cv_img, cv::Size(width, height));
+  } else {
+    cv_img = cv_img_origin;
+  }
+  return cv_img;
+}
+
 cv::Mat ReadImageToCVMat(const string& filename,
     const int height, const int width, const bool is_color) {
   cv::Mat cv_img;
@@ -140,6 +190,46 @@ bool ReadImageToDatum(const string& filename, const int label,
     return false;
   }
 }
+
+void EncodeCVMatToDatum(const cv::Mat& cv_img, const string& encoding,
+                        Datum* datum) {
+  std::vector<uchar> buf;
+  cv::imencode("."+encoding, cv_img, buf);
+  datum->set_data(std::string(reinterpret_cast<char*>(&buf[0]),
+                              buf.size()));
+  datum->set_channels(cv_img.channels());
+  datum->set_height(cv_img.rows);
+  datum->set_width(cv_img.cols);
+  datum->set_encoded(true);
+}
+
+// add min_dim and max_dim
+bool ReadImageToDatum(const string& filename, const int label,
+    const int height, const int width, const int min_dim, const int max_dim,
+    const bool is_color, const std::string & encoding, Datum* datum) {
+  cv::Mat cv_img = ReadImageToCVMat(filename, height, width, min_dim, max_dim,
+                                    is_color);
+  if (cv_img.data) {
+    if (encoding.size()) {
+      if ( (cv_img.channels() == 3) == is_color && !height && !width &&
+          !min_dim && !max_dim && matchExt(filename, encoding) ) {
+        datum->set_channels(cv_img.channels());
+        datum->set_height(cv_img.rows);
+        datum->set_width(cv_img.cols);
+        return ReadFileToDatum(filename, label, datum);
+      }
+      EncodeCVMatToDatum(cv_img, encoding, datum);
+      datum->set_label(label);
+      return true;
+    }
+    CVMatToDatum(cv_img, datum);
+    datum->set_label(label);
+    return true;
+  } else {
+    return false;
+  }
+}
+
 #endif  // USE_OPENCV
 
 bool ReadFileToDatum(const string& filename, const int label,
