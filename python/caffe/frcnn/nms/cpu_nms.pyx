@@ -132,7 +132,7 @@ def cpu_soft_nms(np.ndarray[float, ndim=2] boxes, float sigma=0.5, float thresho
                     ov = iw * ih / ua #iou between max box and detection box
 
                     if method == 1: # linear
-                        if ov > Nt:
+                        if ov > threshold:
                             weight = 1 - ov
                         else:
                             weight = 1

@@ -162,7 +162,6 @@ class SolverWrapper(object):
             for c_ind in xrange(len(classes)):
                 inds = np.where(labels == c_ind)[0]
                 cls_name = classes[c_ind]
-                print '{} {}'.format(cls_name ,len(inds))
                 classes_count[cls_name] += len(inds)
 
             if self.solver.iter != 0 and cfg.TRAIN.USE_FAST_RCNN_OHEM \
