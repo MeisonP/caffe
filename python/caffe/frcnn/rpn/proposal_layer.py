@@ -8,10 +8,10 @@
 import caffe
 import numpy as np
 import yaml
-from fast_rcnn.config import cfg
-from generate_anchors import generate_anchors
-from fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
-from fast_rcnn.nms_wrapper import nms
+from caffe.frcnn.fast_rcnn.config import cfg
+from caffe.frcnn.rpn.generate_anchors import generate_anchors
+from caffe.frcnn.fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
+from caffe.frcnn.fast_rcnn.nms_wrapper import nms
 
 DEBUG = False
 
@@ -63,10 +63,13 @@ class ProposalLayer(caffe.Layer):
             'Only single item batches are supported'
 
         cfg_key = self.phase # either 'TRAIN' or 'TEST'
+        nms_method = cfg.TRAIN.NMS_METHOD
         if cfg_key == 0:
           cfg_ = cfg.TRAIN
         else:
           cfg_ = cfg.TEST
+          nms_method = cfg.TEST.NMS_METHOD
+
         pre_nms_topN  = cfg_.RPN_PRE_NMS_TOP_N
         post_nms_topN = cfg_.RPN_POST_NMS_TOP_N
         nms_thresh    = cfg_.RPN_NMS_THRESH
@@ -146,7 +149,7 @@ class ProposalLayer(caffe.Layer):
         # 6. apply nms (e.g. threshold = 0.7)
         # 7. take after_nms_topN (e.g. 300)
         # 8. return the top proposals (-> RoIs top)
-        keep = nms(np.hstack((proposals, scores)), nms_thresh)
+        keep = nms(np.hstack((proposals, scores)), nms_thresh, method=nms_method)
         if post_nms_topN > 0:
             keep = keep[:post_nms_topN]
         proposals = proposals[keep, :]

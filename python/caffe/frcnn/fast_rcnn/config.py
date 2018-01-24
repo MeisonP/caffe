@@ -33,6 +33,26 @@ cfg = __C
 
 __C.TRAIN = edict()
 
+__C.TRAIN.CLASSES = ()
+
+# OHEM
+__C.TRAIN.USE_FAST_RCNN_OHEM = True
+__C.TRAIN.USE_RPN_OHEM = True
+__C.TRAIN.OHEM_NMS_THRESH = 0.7
+__C.TRAIN.OHEM_USE_NMS = True
+__C.TRAIN.MONITOR_ROI = False
+__C.TRAIN.MONITOR_BATCH = 40
+
+# soft nms
+__C.TRAIN.NMS_METHOD = 0
+
+# plateau
+__C.TRAIN.PLATEAU_LR = 0.0001
+
+# tensorboradx
+__C.TRAIN.SCALAR_SUMMARY_ITERS = 100
+__C.TRAIN.IMAGE_SUMMARY_ITERS = 500
+
 # Scales to use during training (can list multiple scales)
 # Each scale is the pixel size of an image's shortest side
 __C.TRAIN.SCALES = (600,)
