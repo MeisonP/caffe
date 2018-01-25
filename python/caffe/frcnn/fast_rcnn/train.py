@@ -169,11 +169,11 @@ class SolverWrapper(object):
                 total_sum = sum([x for x in classes_count.values()])
                 for c_ind in xrange(len(classes)):
                     cls_name = classes[c_ind]
-                    cls_count = float(classes_count[cls_name]) / labels.shape[0]
+                    cls_count = float(classes_count[cls_name]) / total_sum
                     #  print '{} {}'.format(cls_name ,cls_count)
                     self.writer.add_scalar('data/{}'.format(cls_name), cls_count, self.solver.iter)
                     classes_count[cls_name] = 0
-                self.writer.add_scalar('data/rois', labels.shape[0] / cfg.TRAIN.BATCH_SIZE , self.solver.iter)
+                self.writer.add_scalar('data/rois', total_sum / (cfg.TRAIN.BATCH_SIZE * cfg.TRAIN.MONITOR_BATCH) , self.solver.iter)
 
             # send summary data to tensorboard
             if self.solver.iter != 0 and cfg.TRAIN.SCALAR_SUMMARY_ITERS > 0:
