@@ -34,6 +34,7 @@ cfg = __C
 __C.TRAIN = edict()
 
 __C.TRAIN.CLASSES = ()
+__C.TRAIN.COLORS = ()
 
 # OHEM
 __C.TRAIN.USE_FAST_RCNN_OHEM = True

@@ -169,10 +169,11 @@ class SolverWrapper(object):
                 total_sum = sum([x for x in classes_count.values()])
                 for c_ind in xrange(len(classes)):
                     cls_name = classes[c_ind]
-                    cls_count = float(classes_count[cls_name]) / total_sum
+                    cls_count = float(classes_count[cls_name]) / labels.shape[0]
                     #  print '{} {}'.format(cls_name ,cls_count)
                     self.writer.add_scalar('data/{}'.format(cls_name), cls_count, self.solver.iter)
                     classes_count[cls_name] = 0
+                self.writer.add_scalar('data/rois', labels.shape[0] / cfg.TRAIN.BATCH_SIZE , self.solver.iter)
 
             # send summary data to tensorboard
             if self.solver.iter != 0 and cfg.TRAIN.SCALAR_SUMMARY_ITERS > 0:
@@ -207,8 +208,10 @@ class SolverWrapper(object):
                     bgr_im = bgr_im.astype(np.uint8).copy()
                     for i in range(roi_coords.shape[0]):
                         roi_coord = map(int, roi_coords[i, :])
+                        label_ind = int(labels[i])
+                        color = cfg.TRAIN.COLORS[label_ind]
                         assert (len(roi_coord) == 4)
-                        cv2.rectangle(bgr_im, (roi_coord[0], roi_coord[1]), (roi_coord[2], roi_coord[3]), (255, 0, 0))
+                        cv2.rectangle(bgr_im, (roi_coord[0], roi_coord[1]), (roi_coord[2], roi_coord[3]), color, 2)
                     self.writer.add_image('Image', transformer(bgr_im), self.solver.iter)
 
             self.solver.apply_update()
