@@ -1,7 +1,7 @@
 import sys
 import os.path as osp
 this_dir = osp.dirname(__file__)
-caffe_path = osp.join(this_dir, '..', '..', 'python')
+caffe_path = osp.join(this_dir, '..', '..', '..', 'python')
 sys.path.insert(0, caffe_path)
 
 from caffe.proto import caffe_pb2
@@ -10,6 +10,8 @@ from caffe import layers as L
 from caffe import params as P
 import caffe
 from argparse import ArgumentParser
+from caffe.frcnn.fast_rcnn.config import cfg
+cfg.TRAIN.HAS_RPN=True
 
 parser = ArgumentParser(description=""" This script generates imagenet alexnet train_val.prototxt files""")
 parser.add_argument('-o', '--output_folder', help="""Train and Test prototxt will be generated as train.prototxt and test.prototxt""")
@@ -199,6 +201,8 @@ def build_inception_module(n, stage, block, name, order, conv_param, use_global_
         print 'to_seperable'
         n[top_name] = get_seperable(n, last_layer, conv_param, last_layer_out, conv_name)
     else:
+        top_name = 'conv{0}_{1}/{2}/{3}'.format(stage, block, name, order)
+        assert (top_name not in n.tops.keys())
         n['conv{0}_{1}/{2}/{3}'.format(stage, block, name, order)] = conv = L.Convolution(last_layer, convolution_param=conv_param, name='conv{0}_{1}/{2}/{3}/conv'.format(stage, block, name, order), param=param)
     # batch normalization
     n['conv{0}_{1}/{2}/{3}/bn'.format(stage, block, name, order)] = bn = L.BatchNorm(conv, param=[dict(lr_mult=0),dict(lr_mult=0),dict(lr_mult=0)], name='conv{0}_{1}/{2}/{3}/bn'.format(stage, block, name, order).format(stage, block, name, order), in_place=True, use_global_stats=use_global_stats)
@@ -288,7 +292,6 @@ def build_inception_block(n, stage, block, last_layer, use_global_stats, module_
 
     if last:
         # batch normalization
-        print 'last bn'
         n['conv{0}_{1}/last_bn'.format(stage, block)] = last_bn = L.BatchNorm(out, param=[dict(lr_mult=0),dict(lr_mult=0),dict(lr_mult=0)], in_place=True, name='conv{0}_{1}/last_bn'.format(stage, block), use_global_stats=use_global_stats)
         #scale
         n['conv{0}_{1}/last_bn_scale'.format(stage, block)] = last_scale = L.Scale(last_bn, scale_param=dict(bias_term=True), in_place=True, name='conv{0}_{1}/last_bn_scale'.format(stage, block), param=scale_param)
@@ -299,11 +302,11 @@ def build_inception_block(n, stage, block, last_layer, use_global_stats, module_
     return out
 
 def make_fully(n, name, num_output, last_layer, use_global_stats):
-    n[name] = ip = L.InnerProduct(last_layer, name=name, inner_product_param=dict(num_output=num_output, weight_filler = dict(type = 'xavier'), bias_filler = dict(type = 'constant', value = 0.1)))
+    n[name] = ip = L.InnerProduct(last_layer, name=name, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0)], inner_product_param=dict(num_output=num_output, weight_filler = dict(type = 'xavier'), bias_filler = dict(type = 'constant', value = 0.1)))
     #  # batch normalization
     n['{}/bn'.format(name)] = bn = L.BatchNorm(ip, param=[dict(lr_mult=0),dict(lr_mult=0),dict(lr_mult=0)], in_place=True, use_global_stats=use_global_stats)
     #scale
-    scale_param=[dict(lr_mult=1, decay_mult=0), dict(lr_mult=1, decay_mult=0)]
+    scale_param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0)]
     n['{}/scale'.format(name)] = scale = L.Scale(bn, scale_param=dict(bias_term=True), in_place=True, param=scale_param)
     # dropout
     n['{}/dropout'.format(name)] = dropout = L.Dropout(scale, in_place=True, dropout_param=dict(dropout_ratio=0.5))
@@ -439,7 +442,9 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False):
     netspec['reluf_2'] = reluf2 = L.ReLU(convf2, in_place=True)
 
     # concat 
-    netspec['concat_convf'] = concat_conf = L.Concat(reluf_rpn, reluf2, concat_param=dict(axis=1))
+    netspec['concat_convf'] = concat_convf = L.Concat(reluf_rpn, reluf2, concat_param=dict(axis=1))
+
+    n.concat_covf_silence = L.Silence(concat_convf, name="concat_convf_silence", ntop=0)
 
     anchor_num = 25
 
@@ -448,7 +453,7 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False):
     n['rpn_conv1'] = rpn_conv1 = L.Convolution(convf_rpn, param=param, convolution_param=dict(pad=1, stride=1 , kernel_size=3, num_output=384, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type='constant', value=0)))
     n['rpn_relu1'] = rpn_relu1 = L.ReLU(rpn_conv1, in_place=True)
 
-    n['rpn_cls_score'] = rpn_cls_score = L.Convolution(rpn_relu1, param=[dict(lr_mult=1.0, decay_mult=1.0), dict(lr_mult=2.0, decay_mult=0)], convolution_param=dict(pad=0, stride=1 , kernel_size=1, num_output=anchor_num * 2, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type = 'constant', value=0)))
+    n['rpn_cls_score'] = rpn_cls_score = L.Convolution(rpn_relu1, param=[dict(lr_mult=1.0, decay_mult=1.0), dict(lr_mult=2.0, decay_mult=0)], convolution_param=dict(pad=0, stride=1 , kernel_size=1, num_output=anchor_num * 2, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type = 'constant', value=0)), name='rpn_cls_score')
     n['rpn_bbox_pred'] = rpn_bbox_pred = L.Convolution(rpn_relu1, param=[dict(lr_mult=1.0, decay_mult=1.0), dict(lr_mult=2.0, decay_mult=0)], convolution_param=dict(pad=0, stride=1 , kernel_size=1, num_output=anchor_num * 4, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type = 'constant', value=0)))
 
     n['rpn_cls_score_reshape'] = rpn_cls_score_reshape = L.Reshape(rpn_cls_score, reshape_param=dict(shape=dict(dim=[0, 2, -1, 0])))
@@ -469,7 +474,7 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False):
     #  fc7
     fc7 = make_fully(netspec, 'fc7', 4096, fc6, use_global_stats)
     # silence
-    L.Silence(fc7, name='silence_fc7')
+    n.silence_fc7 = L.Silence(fc7, name='silence_fc7', ntop=0)
 
     #  #  imagenet
     #  fc8 = netspec['fc8'] = BaseLegoFunction('InnerProduct', dict(name='fc8', param=[dict(lr_mult=1.0, decay_mult=1.0)], inner_product_param=dict(num_output=1000))).attach(netspec, [fc7])

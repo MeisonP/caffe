@@ -1,7 +1,7 @@
 import sys
 import os.path as osp
 this_dir = osp.dirname(__file__)
-caffe_path = osp.join(this_dir, '..', '..', 'python')
+caffe_path = osp.join(this_dir, '..', '..', '..', 'python')
 sys.path.insert(0, caffe_path)
 
 from caffe.proto import caffe_pb2
@@ -199,6 +199,8 @@ def build_inception_module(n, stage, block, name, order, conv_param, use_global_
         print 'to_seperable'
         n[top_name] = get_seperable(n, last_layer, conv_param, last_layer_out, conv_name)
     else:
+        top_name = 'conv{0}_{1}/{2}/{3}'.format(stage, block, name, order)
+        assert (top_name not in n.tops.keys())
         n['conv{0}_{1}/{2}/{3}'.format(stage, block, name, order)] = conv = L.Convolution(last_layer, convolution_param=conv_param, name='conv{0}_{1}/{2}/{3}/conv'.format(stage, block, name, order), param=param)
     # batch normalization
     n['conv{0}_{1}/{2}/{3}/bn'.format(stage, block, name, order)] = bn = L.BatchNorm(conv, param=[dict(lr_mult=0),dict(lr_mult=0),dict(lr_mult=0)], name='conv{0}_{1}/{2}/{3}/bn'.format(stage, block, name, order).format(stage, block, name, order), in_place=True, use_global_stats=use_global_stats)
@@ -288,7 +290,6 @@ def build_inception_block(n, stage, block, last_layer, use_global_stats, module_
 
     if last:
         # batch normalization
-        print 'last bn'
         n['conv{0}_{1}/last_bn'.format(stage, block)] = last_bn = L.BatchNorm(out, param=[dict(lr_mult=0),dict(lr_mult=0),dict(lr_mult=0)], in_place=True, name='conv{0}_{1}/last_bn'.format(stage, block), use_global_stats=use_global_stats)
         #scale
         n['conv{0}_{1}/last_bn_scale'.format(stage, block)] = last_scale = L.Scale(last_bn, scale_param=dict(bias_term=True), in_place=True, name='conv{0}_{1}/last_bn_scale'.format(stage, block), param=scale_param)
@@ -299,7 +300,7 @@ def build_inception_block(n, stage, block, last_layer, use_global_stats, module_
     return out
 
 def make_fully(n, name, num_output, last_layer, use_global_stats):
-    n[name] = ip = L.InnerProduct(last_layer, name=name, inner_product_param=dict(num_output=num_output, weight_filler = dict(type = 'xavier'), bias_filler = dict(type = 'constant', value = 0.1)))
+    n[name] = ip = L.InnerProduct(last_layer, name=name, param=[dict(lr_mult=1.0, decay_mult=1.0), dict(lr_mult=2.0, decay_mult=0)], inner_product_param=dict(num_output=num_output, weight_filler = dict(type = 'xavier'), bias_filler = dict(type = 'constant', value = 0.1)))
     #  # batch normalization
     n['{}/bn'.format(name)] = bn = L.BatchNorm(ip, param=[dict(lr_mult=0),dict(lr_mult=0),dict(lr_mult=0)], in_place=True, use_global_stats=use_global_stats)
     #scale
@@ -326,7 +327,7 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False):
     use_global_stats = True
     zero = False
 
-    n.data, n.im_info, n.gt_boxes = L.Python(name='input-data', ntop=3, python_param=dict(module="caffe.frcnn.roi_data_layer.layer", layer="RoIDataLayer", param_str='num_classes: 21'))
+    n.data, n.rois, n.labels, n.bbox_targets, n.bbox_inside_weights, n.bbox_outside_weights = L.Python(name='input-data', ntop=6, python_param=dict(module="caffe.frcnn.roi_data_layer.layer", layer="RoIDataLayer", param_str='num_classes: 6'))
     #  netspec.data, netspec.im_info, netspec.gt_boxes = BaseLegoFunction('Python', params).attach(netspec, [])
 
     #  params = dict(name='data', ntop = 2, input_param=dict(shape=dict(dim=[1, 3, 320, 320])))
@@ -439,37 +440,38 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False):
     netspec['reluf_2'] = reluf2 = L.ReLU(convf2, in_place=True)
 
     # concat 
-    netspec['concat_convf'] = concat_conf = L.Concat(reluf_rpn, reluf2, concat_param=dict(axis=1))
+    netspec['concat_convf'] = concat_convf = L.Concat(reluf_rpn, reluf2, concat_param=dict(axis=1))
+
+    #  L.Silence(concat_convf, name="concat_convf_silence")
 
     anchor_num = 25
+    cls_num = 6
 
-
-    #  # train rpn
-    n['rpn_conv1'] = rpn_conv1 = L.Convolution(convf_rpn, param=param, convolution_param=dict(pad=1, stride=1 , kernel_size=3, num_output=384, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type='constant', value=0)))
-    n['rpn_relu1'] = rpn_relu1 = L.ReLU(rpn_conv1, in_place=True)
-
-    n['rpn_cls_score'] = rpn_cls_score = L.Convolution(rpn_relu1, param=[dict(lr_mult=1.0, decay_mult=1.0), dict(lr_mult=2.0, decay_mult=0)], convolution_param=dict(pad=0, stride=1 , kernel_size=1, num_output=anchor_num * 2, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type = 'constant', value=0)))
-    n['rpn_bbox_pred'] = rpn_bbox_pred = L.Convolution(rpn_relu1, param=[dict(lr_mult=1.0, decay_mult=1.0), dict(lr_mult=2.0, decay_mult=0)], convolution_param=dict(pad=0, stride=1 , kernel_size=1, num_output=anchor_num * 4, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type = 'constant', value=0)))
-
-    n['rpn_cls_score_reshape'] = rpn_cls_score_reshape = L.Reshape(rpn_cls_score, reshape_param=dict(shape=dict(dim=[0, 2, -1, 0])))
-
-    n.rpn_labels, n.rpn_bbox_targets, n.rpn_bbox_inside_weights, n.rpn_bbox_outside_weights =  \
-            L.Python(rpn_cls_score, n.gt_boxes, n.im_info, n.data, name='rpn-data', python_param=dict(module='caffe.frcnn.rpn.anchor_target_layer', layer='AnchorTargetLayer', param_str="{'feat_stride': 16, 'ratios': [0.5, 0.667, 1.0, 1.5, 2.0], 'scales': [3, 6, 9, 16, 25]}"), ntop=4)
-
-    n.rpn_cls_score = L.SoftmaxWithLoss(rpn_cls_score_reshape, n.rpn_labels, propagate_down=[1,0], name='rpn_loss_cls', loss_weight=1, loss_param=dict(ignore_label=-1, normalize=True))
-
-    n.rpn_loss_bbox = L.SmoothL1Loss(rpn_bbox_pred, n.rpn_bbox_targets, n.rpn_bbox_inside_weights, n.rpn_bbox_outside_weights, loss_weight=1, smooth_l1_loss_param=dict(sigma=3.0))
-
-    # DummyLayers
-    n.dummy_roi_pool_conv5 = L.DummyData(dummy_data_param=dict(shape=dict(dim =[1,18432]), data_filler=dict(type='constant', value=0)))
+    n.roi_pool_conv5 = L.ROIPooling(concat_convf, n.rois, roi_pooling_param=dict(pooled_w=6, pooled_h=6, spatial_scale=0.0625))
 
 
     #  fc6
-    fc6 = make_fully(netspec, 'fc6', 4096, n.dummy_roi_pool_conv5, use_global_stats)
+    fc6 = make_fully(netspec, 'fc6', 4096, n.roi_pool_conv5, use_global_stats)
     #  fc7
     fc7 = make_fully(netspec, 'fc7', 4096, fc6, use_global_stats)
     # silence
-    L.Silence(fc7, name='silence_fc7')
+    n.cls_score = L.InnerProduct(fc7, param=[dict(lr_mult=1), dict(lr_mult=2)], num_output=cls_num)
+    n.bbox_pred = L.InnerProduct(fc7, param=[dict(lr_mult=1), dict(lr_mult=2)], num_output=cls_num * 4)
+    n.loss_cls = L.SoftmaxWithLoss(n.cls_score, n.labels, propagate_down=[1,0], loss_weight=1, loss_param=dict(ignore_label=1, normalize=True))
+    n.loss_bbox = L.SmoothL1Loss(n.bbox_pred, n.bbox_targets, n.bbox_inside_weights, n.bbox_outside_weights, loss_weight=1)
+
+
+    #  # train rpn
+    # DummyLayers
+    n['rpn_conv1'] = rpn_conv1 = L.Convolution(convf_rpn, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0)], convolution_param=dict(pad=1, stride=1 , kernel_size=3, num_output=384, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type='constant', value=0)))
+    n['rpn_relu1'] = rpn_relu1 = L.ReLU(rpn_conv1, in_place=True)
+
+    n['rpn_cls_score'] = rpn_cls_score = L.Convolution(rpn_relu1, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0)], convolution_param=dict(pad=0, stride=1 , kernel_size=1, num_output=anchor_num * 2, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type = 'constant', value=0)), name='rpn_cls_score')
+    n['rpn_bbox_pred'] = rpn_bbox_pred = L.Convolution(rpn_relu1, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0)], convolution_param=dict(pad=0, stride=1 , kernel_size=1, num_output=anchor_num * 4, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type = 'constant', value=0)))
+
+    n.silence = L.Silence(rpn_bbox_pred, rpn_cls_score, name='rpn_silence', ntop=0)
+
+
 
     #  #  imagenet
     #  fc8 = netspec['fc8'] = BaseLegoFunction('InnerProduct', dict(name='fc8', param=[dict(lr_mult=1.0, decay_mult=1.0)], inner_product_param=dict(num_output=1000))).attach(netspec, [fc7])
@@ -487,7 +489,7 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False):
 if __name__ == '__main__':
     args = parser.parse_args()
     netspec = write_prototxt(True, 'train', args.output_folder, to_seperable=False)
-    filepath = './stage1_rpn_train.prototxt'
+    filepath = './stage1_fast_rcnn_train.prototxt'
     open(filepath, 'w').write(str(netspec.to_proto()))
     #  net = caffe.Net(filepath, "/home/tumh/pva9.1_pretrained_no_fc6.caffemodel", caffe.TEST)
     net = caffe.Net(filepath, "/home/tumh/SJ/pva-faster-rcnn/pvanet_1000000.caffemodel", caffe.TEST)
