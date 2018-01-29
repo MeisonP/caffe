@@ -37,7 +37,7 @@ __C.TRAIN.CLASSES = ()
 __C.TRAIN.COLORS = ()
 
 # OHEM
-__C.TRAIN.USE_FAST_RCNN_OHEM = True
+__C.TRAIN.USE_RCNN_OHEM = True
 __C.TRAIN.USE_RPN_OHEM = True
 __C.TRAIN.OHEM_NMS_THRESH = 0.7
 __C.TRAIN.OHEM_USE_NMS = True
@@ -56,16 +56,16 @@ __C.TRAIN.IMAGE_SUMMARY_ITERS = 500
 
 # Scales to use during training (can list multiple scales)
 # Each scale is the pixel size of an image's shortest side
-__C.TRAIN.SCALES = (600,)
+__C.TRAIN.SCALES = (640,)
 
 # Resize test images so that its width and height are multiples of ...
 __C.TRAIN.SCALE_MULTIPLE_OF = 1
 
 # Max pixel size of the longest side of a scaled input image
-__C.TRAIN.MAX_SIZE = 1000
+__C.TRAIN.MAX_SIZE = 1280
 
 # Images to use per minibatch
-__C.TRAIN.IMS_PER_BATCH = 2
+__C.TRAIN.IMS_PER_BATCH = 1
 
 # Minibatch size (number of regions of interest [ROIs])
 __C.TRAIN.BATCH_SIZE = 128
@@ -154,6 +154,8 @@ __C.TRAIN.RPN_POSITIVE_WEIGHT = -1.0
 
 __C.TEST = edict()
 
+__C.TEST.NMS_METHOD = 0
+
 # Scales to use during testing (can list multiple scales)
 # Each scale is the pixel size of an image's shortest side
 __C.TEST.SCALES = (600,)
@@ -228,6 +230,9 @@ __C.DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'data'))
 
 # Model directory
 __C.MODELS_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'models', 'pascal_voc'))
+
+# Snapshot directory
+__C.SNAPSHOT_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'snapshot', 'pascal_voc'))
 
 # Name (or path to) the matlab executable
 __C.MATLAB = 'matlab'

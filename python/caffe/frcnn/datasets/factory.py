@@ -9,9 +9,9 @@
 
 __sets = {}
 
-from datasets.pascal_voc import pascal_voc
-from datasets.custom import custom
-from datasets.coco import coco
+from caffe.frcnn.datasets.pascal_voc import pascal_voc
+from caffe.frcnn.datasets.custom import custom
+from caffe.frcnn.datasets.coco import coco
 import numpy as np
 
 # Set up voc_<year>_<split> using selective search "fast" mode

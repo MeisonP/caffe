@@ -6,18 +6,18 @@
 # --------------------------------------------------------
 
 import os
-from datasets.imdb import imdb
-import datasets.ds_utils as ds_utils
+from caffe.frcnn.datasets.imdb import imdb
+import caffe.frcnn.datasets.ds_utils as ds_utils
 import xml.etree.ElementTree as ET
 import numpy as np
 import scipy.sparse
 import scipy.io as sio
-import utils.cython_bbox
+import caffe.frcnn.utils.cython_bbox
 import cPickle
 import subprocess
 import uuid
 from voc_eval import voc_eval
-from fast_rcnn.config import cfg
+from caffe.frcnn.fast_rcnn.config import cfg
 
 class pascal_voc(imdb):
     def __init__(self, image_set, year, devkit_path=None):

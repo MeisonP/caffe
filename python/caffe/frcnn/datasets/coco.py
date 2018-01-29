@@ -4,9 +4,9 @@
 # Written by Ross Girshick
 # --------------------------------------------------------
 
-from datasets.imdb import imdb
-import datasets.ds_utils as ds_utils
-from fast_rcnn.config import cfg
+from caffe.frcnn.datasets.imdb import imdb
+import caffe.frcnn.datasets.ds_utils as ds_utils
+from caffe.frcnn.fast_rcnn.config import cfg
 import os.path as osp
 import sys
 import os
@@ -17,9 +17,9 @@ import cPickle
 import json
 import uuid
 # COCO API
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
-from pycocotools import mask as COCOmask
+from caffe.frcnn.pycocotools.coco import COCO
+from caffe.frcnn.pycocotools.cocoeval import COCOeval
+from caffe.frcnn.pycocotools import mask as COCOmask
 
 def _filter_crowd_proposals(roidb, crowd_thresh):
     """
