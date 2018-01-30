@@ -6212,7 +6212,7 @@ layer {
 }
 layer {
   name: "rpn_loss_cls"
-  type: "SoftmaxWithLoss"
+  type: "FocalLoss"
   bottom: "rpn_cls_score_reshape"
   bottom: "rpn_labels"
   top: "rpn_loss_cls"

@@ -103,9 +103,7 @@ class SolverWrapper(object):
 
         #  filename = os.path.join(self.output_dir, filename)
 
-
         net.save(os.path.join(cfg.SNAPSHOT_DIR, str(filename) + '.caffemodel'))
-        print 'Wrote snapshot to: {:s}'.format(filename)
 
         if scale_bbox_params:
             # restore net to original state
@@ -239,7 +237,7 @@ class SolverAltWrapper(SolverWrapper):
         classes_count = defaultdict(int)
         models = []
         stage = self._stage
-        while self.solver.iter < self.solver_param.max_iter:
+        while self.solver.iter == 0 or self.solver.lr >= cfg.TRAIN.PLATEAU_LR:
             loss = 0
             rpn_cls_loss = 0
             rpn_bbox_loss = 0
@@ -312,7 +310,7 @@ class SolverAltWrapper(SolverWrapper):
                         cv2.rectangle(bgr_im, (roi_coord[0], roi_coord[1]), (roi_coord[2], roi_coord[3]), color, 2)
                     self.writer.add_image('Image', transformer(bgr_im), self.solver.iter)
 
-            if self.solver.iter % cfg.TRAIN.SNAPSHOT_ITERS == 0:
+            if self.solver.iter != 0 and self.solver.iter % cfg.TRAIN.SNAPSHOT_ITERS == 0:
                 self.last_snapshot_iter = self.solver.iter
                 models.append(self.snapshot())
 
@@ -338,17 +336,7 @@ class SolverAltWrapper(SolverWrapper):
         minimum_loss = 0
         models = []
         self.last_snapshot_iter = -1
-        while self.solver.iter < self.solver_param.max_iter:
-        # TODO: check lr_policy
-        #  while True:
-            #  if self.solver.param.lr_policy == 'multistep':
-                #  if self.solver.iter >= self._max_iters:
-                    #  break
-            #  elif self.solver.param.lr_policy == 'plateau':
-                #  if self.solver.lr < cfg.TRAIN.PLATEAU_LR:
-                    #  break
-            #  else:
-                #  raise Exception('Unsupported learning rate policy {}'.format(self.solver.param.lr_policy))
+        while self.solver.iter == 0 or self.solver.lr >= cfg.TRAIN.PLATEAU_LR:
             loss = 0
             rpn_cls_loss = 0
             rpn_bbox_loss = 0
@@ -373,7 +361,7 @@ class SolverAltWrapper(SolverWrapper):
                     self.writer.add_scalar('{}/rpn_bbox_loss'.format(stage), rpn_bbox_loss, self.solver.iter)
                     self.writer.add_scalar('{}/lr'.format(stage), self.solver.lr, self.solver.iter)
 
-            if self.solver.iter % cfg.TRAIN.SNAPSHOT_ITERS == 0:
+            if self.solver.iter != 0 and self.solver.iter % cfg.TRAIN.SNAPSHOT_ITERS == 0:
                 models.append(self.snapshot())
                 self.last_snapshot_iter = self.solver.iter
 

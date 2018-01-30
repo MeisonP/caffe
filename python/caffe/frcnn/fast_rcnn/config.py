@@ -44,6 +44,9 @@ __C.TRAIN.OHEM_USE_NMS = True
 __C.TRAIN.MONITOR_ROI = False
 __C.TRAIN.MONITOR_BATCH = 40
 
+# Focal loss
+__C.TRAIN.USE_FOCAL_LOSS = True
+
 # soft nms
 __C.TRAIN.NMS_METHOD = 0
 

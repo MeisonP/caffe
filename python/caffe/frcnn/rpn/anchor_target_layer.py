@@ -154,23 +154,24 @@ class AnchorTargetLayer(caffe.Layer):
             # assign bg labels last so that negative labels can clobber positives
             labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
 
-        # subsample positive labels if we have too many
-        num_fg = int(cfg.TRAIN.RPN_FG_FRACTION * cfg.TRAIN.RPN_BATCHSIZE)
-        fg_inds = np.where(labels == 1)[0]
-        if len(fg_inds) > num_fg:
-            disable_inds = npr.choice(
-                fg_inds, size=(len(fg_inds) - num_fg), replace=False)
-            labels[disable_inds] = -1
+        if not cfg.TRAIN.USE_FOCAL_LOSS:
+            # subsample positive labels if we have too many
+            num_fg = int(cfg.TRAIN.RPN_FG_FRACTION * cfg.TRAIN.RPN_BATCHSIZE)
+            fg_inds = np.where(labels == 1)[0]
+            if len(fg_inds) > num_fg:
+                disable_inds = npr.choice(
+                    fg_inds, size=(len(fg_inds) - num_fg), replace=False)
+                labels[disable_inds] = -1
 
-        # subsample negative labels if we have too many
-        num_bg = cfg.TRAIN.RPN_BATCHSIZE - np.sum(labels == 1)
-        bg_inds = np.where(labels == 0)[0]
-        if len(bg_inds) > num_bg:
-            disable_inds = npr.choice(
-                bg_inds, size=(len(bg_inds) - num_bg), replace=False)
-            labels[disable_inds] = -1
-            #print "was %s inds, disabling %s, now %s inds" % (
-                #len(bg_inds), len(disable_inds), np.sum(labels == 0))
+            # subsample negative labels if we have too many
+            num_bg = cfg.TRAIN.RPN_BATCHSIZE - np.sum(labels == 1)
+            bg_inds = np.where(labels == 0)[0]
+            if len(bg_inds) > num_bg:
+                disable_inds = npr.choice(
+                    bg_inds, size=(len(bg_inds) - num_bg), replace=False)
+                labels[disable_inds] = -1
+                #print "was %s inds, disabling %s, now %s inds" % (
+                    #len(bg_inds), len(disable_inds), np.sum(labels == 0))
 
         bbox_targets = np.zeros((len(inds_inside), 4), dtype=np.float32)
         bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])

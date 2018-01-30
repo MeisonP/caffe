@@ -315,7 +315,7 @@ def make_fully(n, name, num_output, last_layer, use_global_stats):
 
     return relu
 
-def write_prototxt(is_train, source, output_folder, to_seperable=False):
+def write_prototxt(is_train, source, output_folder, to_seperable=False, use_focal_loss=True):
     n = netspec = caffe.NetSpec()
     if is_train:
         include = 'train'
@@ -461,7 +461,10 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False):
     n.rpn_labels, n.rpn_bbox_targets, n.rpn_bbox_inside_weights, n.rpn_bbox_outside_weights =  \
             L.Python(rpn_cls_score, n.gt_boxes, n.im_info, n.data, name='rpn-data', python_param=dict(module='caffe.frcnn.rpn.anchor_target_layer', layer='AnchorTargetLayer', param_str="{'feat_stride': 16, 'ratios': [0.5, 0.667, 1.0, 1.5, 2.0], 'scales': [3, 6, 9, 16, 25]}"), ntop=4)
 
-    n.rpn_loss_cls = L.SoftmaxWithLoss(rpn_cls_score_reshape, n.rpn_labels, propagate_down=[1,0], name='rpn_loss_cls', loss_weight=1, loss_param=dict(ignore_label=-1, normalize=True))
+    if use_focal_loss:
+        n.rpn_loss_cls = L.FocalLoss(rpn_cls_score_reshape, n.rpn_labels, propagate_down=[1,0], name='rpn_loss_cls', loss_weight=1, loss_param=dict(ignore_label=-1, normalize=True))
+    else:
+        n.rpn_loss_cls = L.SoftmaxWithLoss(rpn_cls_score_reshape, n.rpn_labels, propagate_down=[1,0], name='rpn_loss_cls', loss_weight=1, loss_param=dict(ignore_label=-1, normalize=True))
 
     n.rpn_loss_bbox = L.SmoothL1Loss(rpn_bbox_pred, n.rpn_bbox_targets, n.rpn_bbox_inside_weights, n.rpn_bbox_outside_weights, loss_weight=1, smooth_l1_loss_param=dict(sigma=3.0))
 
@@ -491,11 +494,12 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    netspec = write_prototxt(True, 'train', args.output_folder, to_seperable=False)
+    netspec = write_prototxt(True, 'train', args.output_folder, to_seperable=False, use_focal_loss=True)
     filepath = './stage1_rpn_train.prototxt'
     open(filepath, 'w').write(str(netspec.to_proto()))
     #  net = caffe.Net(filepath, "/home/tumh/pva9.1_pretrained_no_fc6.caffemodel", caffe.TEST)
     net = caffe.Net(filepath, "/home/tumh/SJ/pva-faster-rcnn/pvanet_1000000.caffemodel", caffe.TEST)
+    print 'done'
 
     # Also print out the network complexity
     #  params, flops = get_complexity(prototxt_file=filepath)
