@@ -329,7 +329,7 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False, use_foca
     use_global_stats = True
     zero = False
 
-    n.data, n.im_info, n.gt_boxes = L.Python(name='input-data', ntop=3, python_param=dict(module="caffe.frcnn.roi_data_layer.layer", layer="RoIDataLayer", param_str='num_classes: 21'))
+    n.data, n.im_info, n.gt_boxes = L.Python(name='input-data', ntop=3, python_param=dict(module="caffe.frcnn.roi_data_layer.layer", layer="RoIDataLayer", param_str='num_classes: 6'))
     #  netspec.data, netspec.im_info, netspec.gt_boxes = BaseLegoFunction('Python', params).attach(netspec, [])
 
     #  params = dict(name='data', ntop = 2, input_param=dict(shape=dict(dim=[1, 3, 320, 320])))
@@ -431,7 +431,7 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False, use_foca
     # downsample
     netspec['downsample'] = downsample = L.Pooling(c_3_4, pooling_param=dict(pad=0, stride=2 , kernel_size=3, pool=P.Pooling.MAX))
     # concat 
-    netspec['concat'] = concat = L.Concat(upsample, downsample, incep_4_4, concat_param=dict(axis=1))
+    netspec['concat'] = concat = L.Concat(downsample, incep_4_4, upsample, concat_param=dict(axis=1))
 
     # reduce channels
     netspec['convf_rpn'] = convf_rpn = L.Convolution(concat, param=param, convolution_param=dict(pad=0, stride=1 , kernel_size=1, num_output=128, weight_filler=dict(type='xavier', std=0.1), bias_filler=dict(type = 'constant', value=0.1)))
@@ -469,15 +469,15 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False, use_foca
     n.rpn_loss_bbox = L.SmoothL1Loss(rpn_bbox_pred, n.rpn_bbox_targets, n.rpn_bbox_inside_weights, n.rpn_bbox_outside_weights, loss_weight=1, smooth_l1_loss_param=dict(sigma=3.0))
 
     # DummyLayers
-    n.dummy_roi_pool_conv5 = L.DummyData(dummy_data_param=dict(shape=dict(dim =[1,18432]), data_filler=dict(type='constant', value=0)))
+    #  n.dummy_roi_pool_conv5 = L.DummyData(dummy_data_param=dict(shape=dict(dim =[1,18432]), data_filler=dict(type='constant', value=0)))
 
 
-    #  fc6
-    fc6 = make_fully(netspec, 'fc6', 4096, n.dummy_roi_pool_conv5, use_global_stats)
-    #  fc7
-    fc7 = make_fully(netspec, 'fc7', 4096, fc6, use_global_stats)
-    # silence
-    n.silence_fc7 = L.Silence(fc7, name='silence_fc7', ntop=0)
+    #  #  fc6
+    #  fc6 = make_fully(netspec, 'fc6', 4096, n.dummy_roi_pool_conv5, use_global_stats)
+    #  #  fc7
+    #  fc7 = make_fully(netspec, 'fc7', 4096, fc6, use_global_stats)
+    #  # silence
+    #  n.silence_fc7 = L.Silence(fc7, name='silence_fc7', ntop=0)
 
     #  #  imagenet
     #  fc8 = netspec['fc8'] = BaseLegoFunction('InnerProduct', dict(name='fc8', param=[dict(lr_mult=1.0, decay_mult=1.0)], inner_product_param=dict(num_output=1000))).attach(netspec, [fc7])
@@ -494,12 +494,12 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False, use_foca
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    netspec = write_prototxt(True, 'train', args.output_folder, to_seperable=False, use_focal_loss=True)
+    netspec = write_prototxt(True, 'train', args.output_folder, to_seperable=False, use_focal_loss=False)
     filepath = './stage1_rpn_train.prototxt'
     open(filepath, 'w').write(str(netspec.to_proto()))
     #  net = caffe.Net(filepath, "/home/tumh/pva9.1_pretrained_no_fc6.caffemodel", caffe.TEST)
-    net = caffe.Net(filepath, "/home/tumh/SJ/pva-faster-rcnn/pvanet_1000000.caffemodel", caffe.TEST)
-    print 'done'
+    #  net = caffe.Net(filepath, "/home/tumh/SJ/pva-faster-rcnn/pvanet_1000000.caffemodel", caffe.TEST)
+    #  print 'done'
 
     # Also print out the network complexity
     #  params, flops = get_complexity(prototxt_file=filepath)
