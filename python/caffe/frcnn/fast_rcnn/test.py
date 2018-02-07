@@ -7,18 +7,18 @@
 
 """Test a Fast R-CNN network on an imdb (image database)."""
 
-from fast_rcnn.config import cfg, get_output_dir
-from fast_rcnn.bbox_transform import clip_boxes, bbox_transform_inv
+from caffe.frcnn.fast_rcnn.config import cfg, get_output_dir
+from caffe.frcnn.fast_rcnn.bbox_transform import clip_boxes, bbox_transform_inv
 import argparse
-from utils.timer import Timer
+from caffe.frcnn.utils.timer import Timer
 import numpy as np
 import cv2
 import caffe
-from fast_rcnn.nms_wrapper import nms
+from caffe.frcnn.fast_rcnn.nms_wrapper import nms
 import cPickle
-from utils.blob import im_list_to_blob
+from caffe.frcnn.utils.blob import im_list_to_blob
 import os
-from utils.cython_bbox import bbox_overlaps
+from caffe.frcnn.utils.cython_bbox import bbox_overlaps
 
 
 def _get_image_blob(im):

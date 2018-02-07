@@ -126,10 +126,12 @@ def train_rpn(queue=None, imdb_name=None, init_model=None, solver=None,
                             stage=stage)
     # Cleanup all but the final model
     for i in model_paths[:-1]:
-        os.remove(os.path.join(os.path.join(cfg.SNAPSHOT_DIR, i + '.caffemodel')))
+        #  os.remove(os.path.join(os.path.join(cfg.SNAPSHOT_DIR, i + '.caffemodel')))
+        os.remove(i + '.caffemodel')
     rpn_model_path = model_paths[-1]
+    return  rpn_model_path + '.caffemodel'
     # Send final model path through the multiprocessing queue
-    queue.put({'model_path': os.path.join(cfg.SNAPSHOT_DIR, rpn_model_path + '.caffemodel')})
+    #  queue.put({'model_path': os.path.join(cfg.SNAPSHOT_DIR, rpn_model_path + '.caffemodel')})
 
 def rpn_generate(queue=None, imdb_name=None, rpn_model_path=None, cfg=None,
                  rpn_test_prototxt=None):
@@ -217,7 +219,7 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------
 
     # queue for communicated results between processes
-    mp_queue = mp.Queue()
+    #  mp_queue = mp.Queue()
     # solves, iters, etc. for each training stage
     solvers, rpn_test_prototxt = get_solvers()
 
@@ -225,110 +227,117 @@ if __name__ == '__main__':
     print 'Stage 1 RPN, init from ImageNet model'
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
-    cfg.TRAIN.SNAPSHOT_INFIX = 'stage1'
-    mp_kwargs = dict(
-            queue=mp_queue,
-            imdb_name=args.imdb_name,
+    #  cfg.TRAIN.SNAPSHOT_INFIX = 'stage1'
+    #  mp_kwargs = dict(
+            #  queue=mp_queue,
+            #  imdb_name=args.imdb_name,
+            #  init_model=args.pretrained_model,
+            #  solver=solvers[0],
+            #  cfg=cfg,
+            #  stage='1/rpn',
+            #  )
+    #  p = mp.Process(target=train_rpn, kwargs=mp_kwargs)
+    #  p.start()
+    #  rpn_stage1_out = mp_queue.get()
+    #  p.join()
+    train_rpn(imdb_name=args.imdb_name,
             init_model=args.pretrained_model,
             solver=solvers[0],
             cfg=cfg,
-            stage='1/rpn',
-            )
-    p = mp.Process(target=train_rpn, kwargs=mp_kwargs)
-    p.start()
-    rpn_stage1_out = mp_queue.get()
-    p.join()
+            stage='1/rpn',)
 
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'Stage 1 RPN, generate proposals'
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print 'Stage 1 RPN, generate proposals'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
-    mp_kwargs = dict(
-            queue=mp_queue,
-            imdb_name=args.imdb_name,
-            rpn_model_path=str(rpn_stage1_out['model_path']),
-            cfg=cfg,
-            rpn_test_prototxt=rpn_test_prototxt)
-    p = mp.Process(target=rpn_generate, kwargs=mp_kwargs)
-    p.start()
-    rpn_stage1_out['proposal_path'] = mp_queue.get()['proposal_path']
-    p.join()
+    #  mp_kwargs = dict(
+            #  queue=mp_queue,
+            #  imdb_name=args.imdb_name,
+            #  rpn_model_path=str(rpn_stage1_out['model_path']),
+            #  cfg=cfg,
+            #  rpn_test_prototxt=rpn_test_prototxt)
+    #  p = mp.Process(target=rpn_generate, kwargs=mp_kwargs)
+    #  p.start()
+    #  #  rpn_stage1_out['proposal_path'] = mp_queue.get()['proposal_path']
+    #  mp_queue.get()['proposal_path']
+    #  #  rpn_stage1_out['proposal_path'] = mp_queue.get()['proposal_path']
+    #  p.join()
 
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'Stage 1 Fast R-CNN using RPN proposals, init from ImageNet model'
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print 'Stage 1 Fast R-CNN using RPN proposals, init from ImageNet model'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
-    cfg.TRAIN.SNAPSHOT_INFIX = 'stage1'
-    mp_kwargs = dict(
-            queue=mp_queue,
-            imdb_name=args.imdb_name,
-            init_model=args.pretrained_model,
-            solver=solvers[1],
-            cfg=cfg,
-            rpn_file=rpn_stage1_out['proposal_path'],
-            stage='1/rcnn'
-            )
-    p = mp.Process(target=train_fast_rcnn, kwargs=mp_kwargs)
-    p.start()
-    fast_rcnn_stage1_out = mp_queue.get()
-    p.join()
+    #  cfg.TRAIN.SNAPSHOT_INFIX = 'stage1'
+    #  mp_kwargs = dict(
+            #  queue=mp_queue,
+            #  imdb_name=args.imdb_name,
+            #  init_model=args.pretrained_model,
+            #  solver=solvers[1],
+            #  cfg=cfg,
+            #  rpn_file=rpn_stage1_out['proposal_path'],
+            #  stage='1/rcnn'
+            #  )
+    #  p = mp.Process(target=train_fast_rcnn, kwargs=mp_kwargs)
+    #  p.start()
+    #  fast_rcnn_stage1_out = mp_queue.get()
+    #  p.join()
 
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'Stage 2 RPN, init from stage 1 Fast R-CNN model'
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print 'Stage 2 RPN, init from stage 1 Fast R-CNN model'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
-    cfg.TRAIN.SNAPSHOT_INFIX = 'stage2'
-    mp_kwargs = dict(
-            queue=mp_queue,
-            imdb_name=args.imdb_name,
-            init_model=str(fast_rcnn_stage1_out['model_path']),
-            solver=solvers[2],
-            cfg=cfg,
-            stage='2/rpn')
-    p = mp.Process(target=train_rpn, kwargs=mp_kwargs)
-    p.start()
-    rpn_stage2_out = mp_queue.get()
-    p.join()
+    #  cfg.TRAIN.SNAPSHOT_INFIX = 'stage2'
+    #  mp_kwargs = dict(
+            #  queue=mp_queue,
+            #  imdb_name=args.imdb_name,
+            #  init_model=str(fast_rcnn_stage1_out['model_path']),
+            #  solver=solvers[2],
+            #  cfg=cfg,
+            #  stage='2/rpn')
+    #  p = mp.Process(target=train_rpn, kwargs=mp_kwargs)
+    #  p.start()
+    #  rpn_stage2_out = mp_queue.get()
+    #  p.join()
 
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'Stage 2 RPN, generate proposals'
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print 'Stage 2 RPN, generate proposals'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
-    mp_kwargs = dict(
-            queue=mp_queue,
-            imdb_name=args.imdb_name,
-            rpn_model_path=str(rpn_stage2_out['model_path']),
-            cfg=cfg,
-            rpn_test_prototxt=rpn_test_prototxt)
-    p = mp.Process(target=rpn_generate, kwargs=mp_kwargs)
-    p.start()
-    rpn_stage2_out['proposal_path'] = mp_queue.get()['proposal_path']
-    p.join()
+    #  mp_kwargs = dict(
+            #  queue=mp_queue,
+            #  imdb_name=args.imdb_name,
+            #  rpn_model_path=str(rpn_stage2_out['model_path']),
+            #  cfg=cfg,
+            #  rpn_test_prototxt=rpn_test_prototxt)
+    #  p = mp.Process(target=rpn_generate, kwargs=mp_kwargs)
+    #  p.start()
+    #  rpn_stage2_out['proposal_path'] = mp_queue.get()['proposal_path']
+    #  p.join()
 
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'Stage 2 Fast R-CNN, init from stage 2 RPN R-CNN model'
-    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    #  print 'Stage 2 Fast R-CNN, init from stage 2 RPN R-CNN model'
+    #  print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
-    cfg.TRAIN.SNAPSHOT_INFIX = 'stage2'
-    mp_kwargs = dict(
-            queue=mp_queue,
-            imdb_name=args.imdb_name,
-            init_model=str(rpn_stage2_out['model_path']),
-            solver=solvers[3],
-            cfg=cfg,
-            rpn_file=rpn_stage2_out['proposal_path'],
-            stage='2/rcnn'
-            )
-    p = mp.Process(target=train_fast_rcnn, kwargs=mp_kwargs)
-    p.start()
-    fast_rcnn_stage2_out = mp_queue.get()
-    p.join()
+    #  cfg.TRAIN.SNAPSHOT_INFIX = 'stage2'
+    #  mp_kwargs = dict(
+            #  queue=mp_queue,
+            #  imdb_name=args.imdb_name,
+            #  init_model=str(rpn_stage2_out['model_path']),
+            #  solver=solvers[3],
+            #  cfg=cfg,
+            #  rpn_file=rpn_stage2_out['proposal_path'],
+            #  stage='2/rcnn'
+            #  )
+    #  p = mp.Process(target=train_fast_rcnn, kwargs=mp_kwargs)
+    #  p.start()
+    #  fast_rcnn_stage2_out = mp_queue.get()
+    #  p.join()
 
-    # Create final model (just a copy of the last stage)
-    final_path = os.path.join(
-            os.path.dirname(fast_rcnn_stage2_out['model_path']),
-            args.net_name + '_faster_rcnn_final.caffemodel')
-    print 'cp {} -> {}'.format(
-            fast_rcnn_stage2_out['model_path'], final_path)
-    shutil.copy(fast_rcnn_stage2_out['model_path'], final_path)
-    print 'Final model: {}'.format(final_path)
+    #  # Create final model (just a copy of the last stage)
+    #  final_path = os.path.join(
+            #  os.path.dirname(fast_rcnn_stage2_out['model_path']),
+            #  args.net_name + '_faster_rcnn_final.caffemodel')
+    #  print 'cp {} -> {}'.format(
+            #  fast_rcnn_stage2_out['model_path'], final_path)
+    #  shutil.copy(fast_rcnn_stage2_out['model_path'], final_path)
+    #  print 'Final model: {}'.format(final_path)

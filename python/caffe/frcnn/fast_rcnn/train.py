@@ -98,12 +98,8 @@ class SolverWrapper(object):
         #  print filename
 
         # FIXME: filename not expected
-        self.solver.snapshot_solverstate(os.path.join(cfg.SNAPSHOT_DIR, str(filename + '.solverstate')))
-        #  self.solver.snapshot_solverstate('11.solverstate')
-
-        #  filename = os.path.join(self.output_dir, filename)
-
-        net.save(os.path.join(cfg.SNAPSHOT_DIR, str(filename) + '.caffemodel'))
+        self.solver.snapshot_solverstate(str(filename) + '.solverstate')
+        net.save(str(filename) + '.caffemodel')
 
         if scale_bbox_params:
             # restore net to original state
