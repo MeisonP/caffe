@@ -17,14 +17,40 @@ __global__ void LogOpGPU(const int nthreads,
   }
 }
 
+//FIXME: cuda memory access bug
+template <typename Dtype>
+__global__ void compute_alpha_kernel(const int nthreads,
+          const Dtype* label, 
+          Dtype* alpha_data,
+          const int dim, 
+          const int spatial_dim,
+          const bool has_ignore_label_, 
+          const int ignore_label_,
+          const Dtype* alpha_list)
+{
+  CUDA_KERNEL_LOOP(index, nthreads) {
+    const int n = index / dim;
+    const int s = index % spatial_dim;
+    const int label_value = static_cast<int>(label[n * spatial_dim + s]);
+    if (has_ignore_label_ && label_value == ignore_label_) {
+    } else {
+      int ind = n * dim + label_value * spatial_dim + s;
+      alpha_data[ind] = alpha_list[label_value];
+      /* printf("cccc %d, f = %f\n", threadIdx.x, alpha_data[ind]); */
+    }
+  }
+}
+
+
 template <typename Dtype>
 void FocalLossLayer<Dtype>::compute_intermediate_values_of_gpu() {
   // compute the corresponding variables
+  const Dtype* ones_data = ones_.gpu_data();
   const int count        = prob_.count();
   const Dtype* prob_data = prob_.gpu_data();
-  const Dtype* ones_data = ones_.gpu_data();
   Dtype* log_prob_data   = log_prob_.mutable_gpu_data();
   Dtype* power_prob_data = power_prob_.mutable_gpu_data();
+  const Dtype * alpha_data = alpha_.gpu_data();
 
   /// log(p_t)
   const int nthreads     = prob_.count();
@@ -38,7 +64,7 @@ void FocalLossLayer<Dtype>::compute_intermediate_values_of_gpu() {
   /// (1 - p_t) ^ gamma
   caffe_gpu_sub(count,  ones_data, prob_data, power_prob_data);
   caffe_gpu_powx(count, power_prob_.gpu_data(), gamma_, power_prob_data);
-  caffe_gpu_scal(count, alpha_, power_prob_data);
+  caffe_gpu_mul(count, alpha_data, power_prob_data, power_prob_data);
 }
 
 template <typename Dtype>
@@ -77,14 +103,30 @@ void FocalLossLayer<Dtype>::Forward_gpu(
   // The forward pass computes the softmax prob values.
   softmax_layer_->Forward(softmax_bottom_vec_, softmax_top_vec_);
 
+  const Dtype* label = bottom[1]->gpu_data();
+  Dtype* alpha_data = alpha_.mutable_gpu_data();
+  const Dtype* alpha_list_data = alpha_list_.gpu_data();
+  const int dim = prob_.count() / outer_num_;
+
+  // compute alpha
+  compute_alpha_kernel<Dtype><<<CAFFE_GET_BLOCKS(alpha_.count()),
+      CAFFE_CUDA_NUM_THREADS>>>(alpha_.count(),
+          label, 
+          alpha_data,
+          dim, 
+          inner_num_,
+          has_ignore_label_, 
+          ignore_label_,
+          alpha_list_data);
+  CUDA_POST_KERNEL_CHECK;
+  cudaDeviceSynchronize();
   // compute all needed values
   compute_intermediate_values_of_gpu();
+  CUDA_POST_KERNEL_CHECK;
 
   // const Dtype* prob_data       = prob_.gpu_data();
   const Dtype* log_prob_data   = log_prob_.gpu_data();
   const Dtype* power_prob_data = power_prob_.gpu_data();
-  const Dtype* label           = bottom[1]->gpu_data();
-  const int dim                = prob_.count() / outer_num_;
   const int nthreads           = outer_num_ * inner_num_;
 
   // Since this memory is not used for anything until it is overwritten

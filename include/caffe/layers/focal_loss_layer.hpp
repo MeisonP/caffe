@@ -46,6 +46,8 @@ class FocalLossLayer : public LossLayer<Dtype> {
 
   void compute_intermediate_values_of_cpu();
   void compute_intermediate_values_of_gpu();
+
+  void compute_alpha(const Dtype* label, const int dim, const int channels);
   
   /// The internal SoftmaxLayer used to map predictions to a distribution.
   shared_ptr<Layer<Dtype> > softmax_layer_;
@@ -67,7 +69,9 @@ class FocalLossLayer : public LossLayer<Dtype> {
   ///
   FocalLossParameter_Type type_;
 
-  Dtype alpha_, beta_, gamma_;
+  Dtype beta_, gamma_;
+  Blob<Dtype> alpha_list_;
+  Blob<Dtype> alpha_;
   int softmax_axis_, outer_num_, inner_num_;
 };
 

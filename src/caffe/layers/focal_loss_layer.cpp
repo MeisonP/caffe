@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <vector>
+#include <fstream>
 
 #include "caffe/layers/focal_loss_layer.hpp"
 #include "caffe/util/math_functions.hpp"
@@ -41,16 +42,37 @@ void FocalLossLayer<Dtype>::LayerSetUp(
 
   // focal loss parameter
   FocalLossParameter focal_loss_param = this->layer_param_.focal_loss_param();
-  alpha_ = focal_loss_param.alpha();
+
+  // read alpha
+  fstream file;
+  file.open(focal_loss_param.alpha(), ios::in);
+  CHECK(file.good() == true);
+  Dtype alpha;
+  vector<Dtype> tmp_list;
+  while(file >> alpha) {
+    CHECK_GT(alpha, 0) << "alpha must be larger than zero";
+    CHECK_LE(alpha, 1) << "alpha must be smaller than or equal to one";
+    tmp_list.push_back(alpha);
+  }
+  CHECK_EQ(tmp_list.size(), bottom[0]->channels()) << "number of alpha should be equal to number of classes";
+  file.close();
+
+  alpha_list_.Reshape(1, tmp_list.size(), 1, 1);
+  CHECK_EQ(alpha_list_.count(), tmp_list.size());
+
+  Dtype *alpha_data = alpha_list_.mutable_cpu_data();
+  for (int i = 0; i < tmp_list.size(); i++) {
+    alpha_data[i] = tmp_list[i];
+  }
+
   beta_  = focal_loss_param.beta();
   gamma_ = focal_loss_param.gamma();
   type_  = focal_loss_param.type();
-  LOG(INFO) << "alpha: " << alpha_;
+  // LOG(INFO) << "alpha: " << alpha_;
   LOG(INFO) << "beta: "  << beta_;
   LOG(INFO) << "gamma: " << gamma_;
   LOG(INFO) << "type: "  << type_;
   CHECK_GE(gamma_, 0) << "gamma must be larger than or equal to zero";
-  CHECK_GT(alpha_, 0) << "alpha must be larger than zero";
   // CHECK_LE(alpha_, 1) << "alpha must be smaller than or equal to one";
 }
 
@@ -83,10 +105,32 @@ void FocalLossLayer<Dtype>::Reshape(
   // alpha * (1 - p_t) ^ gamma
   power_prob_.ReshapeLike(*bottom[0]);
   CHECK_EQ(prob_.count(), power_prob_.count());
+  // add alpha
+  alpha_.ReshapeLike(*bottom[0]);
+  CHECK_EQ(prob_.count(), alpha_.count());
+  caffe_set(alpha_.count(), Dtype(0), alpha_.mutable_cpu_data());
   // 1
   ones_.ReshapeLike(*bottom[0]);
   CHECK_EQ(prob_.count(), ones_.count());
   caffe_set(prob_.count(), Dtype(1), ones_.mutable_cpu_data());
+}
+
+template <typename Dtype>
+void FocalLossLayer<Dtype>::compute_alpha(const Dtype *label, const int dim, const int channels) {
+  Dtype *alpha_data = alpha_.mutable_cpu_data();
+  const Dtype* alpha_list_data = alpha_list_.cpu_data();
+  for (int i = 0; i < outer_num_; ++i) {
+    for (int j = 0; j < inner_num_; j++) {
+      const int label_value = static_cast<int>(label[i * inner_num_ + j]);
+      if (has_ignore_label_ && label_value == ignore_label_) {
+        continue;
+      }
+      DCHECK_GE(label_value, 0);
+      DCHECK_LT(label_value, channels);
+      const int index = i * dim + label_value * inner_num_ + j;
+      alpha_data[index] =  alpha_list_data[label_value];
+    }
+  }
 }
 
 template <typename Dtype>
@@ -128,6 +172,7 @@ void FocalLossLayer<Dtype>::compute_intermediate_values_of_cpu() {
   const Dtype* ones_data = ones_.cpu_data();
   Dtype* log_prob_data   = log_prob_.mutable_cpu_data();
   Dtype* power_prob_data = power_prob_.mutable_cpu_data();
+  const Dtype *alpha_data = alpha_.cpu_data();
 
   /// log(p_t)
   const Dtype eps        = Dtype(FLT_MIN); // where FLT_MIN = 1.17549e-38, here u can change it
@@ -140,7 +185,7 @@ void FocalLossLayer<Dtype>::compute_intermediate_values_of_cpu() {
   /// alpha* (1 - p_t) ^ gamma
   caffe_sub(count,  ones_data, prob_data, power_prob_data);
   caffe_powx(count, power_prob_.cpu_data(), gamma_, power_prob_data);
-  caffe_scal(count, alpha_, power_prob_data);
+  caffe_mul(count, alpha_data, power_prob_data, power_prob_data);
 }
 
 template <typename Dtype>
@@ -151,15 +196,17 @@ void FocalLossLayer<Dtype>::Forward_cpu(
   softmax_layer_->Forward(softmax_bottom_vec_, softmax_top_vec_);
 
   // compute all needed values
-  compute_intermediate_values_of_cpu();
-  const Dtype* label           = bottom[1]->cpu_data();
-  const Dtype* log_prob_data   = log_prob_.cpu_data();
-  const Dtype* power_prob_data = power_prob_.cpu_data();
-
+  const Dtype* label = bottom[1]->cpu_data();
+  const int dim = prob_.count() / outer_num_;
   // compute loss
-  int count    = 0;
-  int channels = prob_.shape(softmax_axis_);
-  int dim      = prob_.count() / outer_num_;
+  int count = 0;
+  const int channels = prob_.shape(softmax_axis_);
+
+  compute_alpha(label, dim, channels);
+  compute_intermediate_values_of_cpu();
+  const Dtype* log_prob_data   = log_prob_.cpu_data();
+  const Dtype* power_prob_data = power_prob_.mutable_cpu_data();
+
 
   Dtype loss = 0;
   for (int i = 0; i < outer_num_; ++i) {
