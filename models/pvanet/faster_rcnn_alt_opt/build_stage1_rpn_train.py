@@ -14,7 +14,9 @@ from caffe.frcnn.fast_rcnn.config import cfg
 cfg.TRAIN.HAS_RPN=True
 
 parser = ArgumentParser(description=""" This script generates imagenet alexnet train_val.prototxt files""")
-parser.add_argument('-o', '--output_folder', help="""Train and Test prototxt will be generated as train.prototxt and test.prototxt""")
+parser.add_argument('-o', '--output', help="""Train and Test prototxt will be generated as train.prototxt and test.prototxt""")
+parser.add_argument('-f', '--use_focal_loss', help="""Train and Test prototxt will be generated as train.prototxt and test.prototxt""", default=False)
+parser.add_argument('-d', '--use_deform', help="""Train and Test prototxt will be generated as train.prototxt and test.prototxt""", default=False)
 
 def build_init_c_relu(n, stage, block, bottom, num_output, use_global_stats, zero=False):
     if zero:
@@ -315,7 +317,7 @@ def make_fully(n, name, num_output, last_layer, use_global_stats):
 
     return relu
 
-def write_prototxt(is_train, source, output_folder, to_seperable=False, use_focal_loss=True):
+def write_prototxt(is_train, to_seperable=False, use_focal_loss=False, use_deform=False):
     n = netspec = caffe.NetSpec()
     if is_train:
         include = 'train'
@@ -447,10 +449,18 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False, use_foca
     n.concat_covf_silence = L.Silence(concat_convf, name="concat_convf_silence", ntop=0)
 
     anchor_num = 25
+    rpn_conv1 = None
 
+    if use_deform:
+        deform_group = 4
+        kernel_size = 3
+        output_channels = deform_group * kernel_size * kernel_size * 2
+        n['rpn_conv1/offset'] = rpn_conv_offset = L.Convolution(convf_rpn, param=param, convolution_param=dict(pad=1, stride=1 , kernel_size=3, num_output=output_channels, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type='constant', value=0)))
+        n['rpn_conv1'] = rpn_conv1 = L.DeformableConvolution(convf_rpn, rpn_conv_offset, param=param, deformable_convolution_param=dict(deformable_group=4, pad=1, stride=1 , kernel_size=3, num_output=384, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type='constant', value=0)))
+    else:
+        #  # train rpn
+        n['rpn_conv1'] = rpn_conv1 = L.Convolution(convf_rpn, param=param, convolution_param=dict(pad=1, stride=1 , kernel_size=3, num_output=384, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type='constant', value=0)))
 
-    #  # train rpn
-    n['rpn_conv1'] = rpn_conv1 = L.Convolution(convf_rpn, param=param, convolution_param=dict(pad=1, stride=1 , kernel_size=3, num_output=384, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type='constant', value=0)))
     n['rpn_relu1'] = rpn_relu1 = L.ReLU(rpn_conv1, in_place=True)
 
     n['rpn_cls_score'] = rpn_cls_score = L.Convolution(rpn_relu1, param=[dict(lr_mult=1.0, decay_mult=1.0), dict(lr_mult=2.0, decay_mult=0)], convolution_param=dict(pad=0, stride=1 , kernel_size=1, num_output=anchor_num * 2, weight_filler=dict(type='gaussian', std=0.01), bias_filler=dict(type = 'constant', value=0)), name='rpn_cls_score')
@@ -468,35 +478,13 @@ def write_prototxt(is_train, source, output_folder, to_seperable=False, use_foca
 
     n.rpn_loss_bbox = L.SmoothL1Loss(rpn_bbox_pred, n.rpn_bbox_targets, n.rpn_bbox_inside_weights, n.rpn_bbox_outside_weights, loss_weight=1, smooth_l1_loss_param=dict(sigma=3.0))
 
-    # DummyLayers
-    #  n.dummy_roi_pool_conv5 = L.DummyData(dummy_data_param=dict(shape=dict(dim =[1,18432]), data_filler=dict(type='constant', value=0)))
-
-
-    #  #  fc6
-    #  fc6 = make_fully(netspec, 'fc6', 4096, n.dummy_roi_pool_conv5, use_global_stats)
-    #  #  fc7
-    #  fc7 = make_fully(netspec, 'fc7', 4096, fc6, use_global_stats)
-    #  # silence
-    #  n.silence_fc7 = L.Silence(fc7, name='silence_fc7', ntop=0)
-
-    #  #  imagenet
-    #  fc8 = netspec['fc8'] = BaseLegoFunction('InnerProduct', dict(name='fc8', param=[dict(lr_mult=1.0, decay_mult=1.0)], inner_product_param=dict(num_output=1000))).attach(netspec, [fc7])
-    #  #  softmax
-    #  #  netspec['loss'] = BaseLegoFunction('SoftmaxWithLoss', dict(name='loss')).attach(netspec, [fc8, netspec.label])
-
-    #  filename = 'train.prototxt' if is_train else 'test.prototxt'
-    #  filepath = output_folder + '/' + filename
-    #  fp = open(filepath, 'w')
-    #  print >> fp, netspec.to_proto()
-    #  fp.close()
     return netspec
 
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    netspec = write_prototxt(True, 'train', args.output_folder, to_seperable=False, use_focal_loss=False)
-    filepath = './stage1_rpn_train.prototxt'
-    open(filepath, 'w').write(str(netspec.to_proto()))
+    netspec = write_prototxt(True, to_seperable=False, use_focal_loss=args.use_focal_loss, use_deform=args.use_deform)
+    open(args.output, 'w').write(str(netspec.to_proto()))
     #  net = caffe.Net(filepath, "/home/tumh/pva9.1_pretrained_no_fc6.caffemodel", caffe.TEST)
     #  net = caffe.Net(filepath, "/home/tumh/SJ/pva-faster-rcnn/pvanet_1000000.caffemodel", caffe.TEST)
     #  print 'done'
