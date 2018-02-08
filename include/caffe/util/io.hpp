@@ -36,6 +36,26 @@ inline void MakeTempDir(string* temp_dirname) {
   LOG(FATAL) << "Failed to create a temporary directory.";
 }
 
+inline void GetTempDirname(string* temp_dirname) {
+  temp_dirname->clear();
+  const path& model =
+    boost::filesystem::temp_directory_path()/"caffe_test.%%%%-%%%%";
+  for ( int i = 0; i < CAFFE_TMP_DIR_RETRIES; i++ ) {
+    const path& dir = boost::filesystem::unique_path(model).string();
+    bool done = boost::filesystem::create_directory(dir);
+    if ( done ) {
+      bool remove_done = boost::filesystem::remove(dir);
+      if (remove_done) {
+        *temp_dirname = dir.string();
+        return;
+      }
+      LOG(FATAL) << "Failed to remove a temporary directory.";
+    }
+  }
+  LOG(FATAL) << "Failed to create a temporary directory.";
+}
+
+
 inline void MakeTempFilename(string* temp_filename) {
   static path temp_files_subpath;
   static uint64_t next_temp_file = 0;
