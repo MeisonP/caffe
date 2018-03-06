@@ -441,6 +441,26 @@ message LayerParameter {
   // deformable conv
   optional DeformableConvolutionParameter deformable_convolution_param = 1051;
 
+  // ctc
+  optional ContinuationIndicatorParameter continuation_indicator_param = 1052;
+  optional CtcLossParameter ctc_loss_param = 1053;
+  optional LabelsequenceAccuracyParameter labelsequence_accuracy_param = 1054;
+
+}
+
+message CtcLossParameter {
+    optional uint32 alphabet_size = 1 [default = 0];
+    optional uint32 time_step = 3 [default = 0];
+    optional int32 blank_label = 4 [default = 0];
+}
+
+message ContinuationIndicatorParameter {
+    optional uint32 time_step = 1 [default = 0];
+    optional uint32 batch_size = 2 [default = 0];
+}
+
+message LabelsequenceAccuracyParameter {
+  optional int32 blank_label = 1 [default = 0];
 }
 
 // Focal Loss for Dense Object Detection
