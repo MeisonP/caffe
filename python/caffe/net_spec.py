@@ -51,8 +51,9 @@ def to_proto(*tops):
 
     layers = OrderedDict()
     autonames = Counter()
+    layer_names = set()
     for top in tops:
-        top.fn._to_proto(layers, {}, autonames)
+        top.fn._to_proto(layers, {}, layer_names, autonames)
     net = caffe_pb2.NetParameter()
     net.layer.extend(layers.values())
     return net
@@ -172,7 +173,8 @@ class Function(object):
             if layer.name != '':
                 layer.name += '/'
             layer.name += self.params['name']
-        assert (layer.name != ''), 'type {} must have layer name '.format(self.type_name)
+        if layer.name == '':
+            layer.name = self._get_name(names, autonames)
         assert(layer.name not in layer_names), 'layer name {} has been defined'.format(layer.name)
         layer_names.add(layer.name)
 
