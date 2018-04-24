@@ -426,6 +426,7 @@ message LayerParameter {
   optional ThresholdParameter threshold_param = 128;
   optional TileParameter tile_param = 138;
   optional WindowDataParameter window_data_param = 129;
+  optional UpsampleParameter upsample_param = 148;
 
   // rcnn
   optional ROIPoolingParameter roi_pooling_param = 1000;
@@ -447,6 +448,17 @@ message LayerParameter {
   optional CtcLossParameter ctc_loss_param = 1053;
   optional LabelsequenceAccuracyParameter labelsequence_accuracy_param = 1054;
 
+}
+
+message UpsampleParameter {
+  enum Type {
+    NEAREST = 0;
+    //LINEAR = 1;
+    //BILINEAR = 2;
+    //TRILINEAR = 3;
+  }
+  optional int32 scale = 1 [default = 1];
+  optional Type type = 2 [default=NEAREST];
 }
 
 message CtcLossParameter {
