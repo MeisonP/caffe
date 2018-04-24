@@ -20,10 +20,15 @@ are not guaranteed to be forward-compatible.
 
 from collections import OrderedDict, Counter, defaultdict
 
+from ._caffe import layer_type_list
 from .proto import caffe_pb2
 from google import protobuf
 import six
 import _caffe
+
+NAME_SCOPE_KEYS = list()
+ARG_SCOPE_KEYS = defaultdict(dict)
+
 
 NAME_SCOPE_KEYS = list()
 ARG_SCOPE_KEYS = defaultdict(dict)
@@ -114,7 +119,7 @@ class Function(object):
                 raise TypeError('%s input %d is not a Top (type is %s)' %
                                 (type_name, index, type(input)))
 
-        self.scope_name = get_scope_name()
+        self.scope = get_scope_name()
         self.scope_arg = get_scope_arg(type_name)
 
         self.inputs = inputs
@@ -168,10 +173,12 @@ class Function(object):
             for top in self.tops:
                 layer.top.append(self._get_top_name(top, names, autonames))
 
-        layer.name = self.scope_name
+        layer.name = ''
+        if self.scope:
+            layer.name = self.scope.name
         if 'name' in self.params:
             if layer.name != '':
-                layer.name += '/'
+                layer.name += self.scope.sep
             layer.name += self.params['name']
         if layer.name == '':
             layer.name = self._get_name(names, autonames)
@@ -183,6 +190,8 @@ class Function(object):
                 self.params[k] = v
 
         for k, v in six.iteritems(self.params):
+            if k == 'name':
+                continue
             # special case to handle generic *params
             if k == 'name':
                 continue
@@ -208,24 +217,23 @@ class NetSpec(object):
         super(NetSpec, self).__setattr__('tops', OrderedDict())
 
     def __setattr__(self, name, value):
-        scope_name = get_scope_name()
+        scope = get_scope_name()
         new_name = name
-        if scope_name != '':
-            new_name = scope_name + '/' + name
-        # if name is a dollar sign, then we just replace the scope name
-        if name == '_':
-            new_name = scope_name
+        if scope:
+            new_name = scope.name + scope.sep + name
+        # if name is a dash, then we just replace with the scope name
+        if name == '_' and scope:
+            new_name = scope.name
         name = new_name
         self.tops[name] = value
 
     def __getattr__(self, name):
-        scope_name = get_scope_name()
+        scope = get_scope_name()
         new_name = name
-        if scope_name != '':
-            new_name = scope_name + '/' + name
-        if name == '_':
-            assert (scope_name != ''), 'a dash top name should be within in a name scope'
-            new_name = scope_name
+        if scope:
+            new_name = scope.name + scope.sep + name
+        if name == '_' and scope:
+            new_name = scope.name
         name = new_name
         return self.tops[name]
 
@@ -280,17 +288,16 @@ layers = Layers()
 params = Parameters()
 
 class name_scope(object):
-    def __init__(self, name):
-        #  self.context = kwargs
+    def __init__(self, name, sep='/'):
         assert(name != '')
         self.name = name
+        self.sep = sep
     def __enter__(self):
         global NAME_SCOPE_KEYS
         if len(NAME_SCOPE_KEYS) > 0:
             p_scope = NAME_SCOPE_KEYS[-1]
-            self.name = p_scope.name + '/' + self.name
+            self.name = p_scope.name + p_scope.sep + self.name
         NAME_SCOPE_KEYS.append(self)
-        #  return self.context
     def __exit__(self, *args):
         global NAME_SCOPE_KEYS
         NAME_SCOPE_KEYS = NAME_SCOPE_KEYS[0:-1]
@@ -302,23 +309,25 @@ class arg_scope(object):
         for layer_type in layer_types:
             self.layer_fns.append(getattr(layers, layer_type))
         self.layer_types = layer_types
-        self.check_args(kwargs)
+        #  self.check_args(kwargs)
         self.args = kwargs
         if 'param' in kwargs:
             assert len(self.layer_fns) == 1
+        self.old = defaultdict(dict)
 
-    def check_args(self, kwargs):
-        for layer_type in self.layer_types:
-            for key, value in kwargs.iteritems():
-                if key in ('param', 'in_place'):
-                    continue
-                # FIXME: class to attribute
-                getattr(getattr(caffe_pb2, layer_type + 'Parameter')(), key)
+    #  def check_args(self, kwargs):
+        #  for layer_type in self.layer_types:
+            #  for key, value in six.iteritems(kwargs):
+                #  if key in ('param', 'in_place'):
+                    #  continue
+                #  getattr(getattr(caffe_pb2, layer_type + 'Parameter')(), key)
 
     def __enter__(self):
         global ARG_SCOPE_KEYS
         for layer_type in self.layer_types:
-            for key, value in self.args.iteritems():
+            # keep old args
+            self.old[layer_type] = ARG_SCOPE_KEYS[layer_type].copy()
+            for key, value in six.iteritems(self.args):
                 ARG_SCOPE_KEYS[layer_type][key] = value
 
     def __exit__(self, *args):
@@ -328,13 +337,18 @@ class arg_scope(object):
             keys = self.args.keys()
             for key in keys:
                 layer_arg.pop(key)
+            # restore old layer args if this is a nested arg scope
+            layer_arg = self.old[layer_type]
+            for key, value in six.iteritems(layer_arg):
+                ARG_SCOPE_KEYS[layer_type][key] = value
+
 
 def get_scope_name():
     global NAME_SCOPE_KEYS
     if len(NAME_SCOPE_KEYS) > 0:
-        return NAME_SCOPE_KEYS[-1].name
+        return NAME_SCOPE_KEYS[-1]
     else:
-        return ''
+        return None
 
 def get_scope_arg(layer_type):
     global ARG_SCOPE_KEYS
@@ -350,5 +364,4 @@ def get_value_from_arg_scope(layey_type, key):
 
 
 _param_names = param_name_dict()
-layer_type_list = list(_caffe.layer_type_list())
-
+layer_type_list = list(layer_type_list())
