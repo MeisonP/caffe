@@ -189,7 +189,7 @@ void Solver<Dtype>::InitTestNets() {
     net_params[i].mutable_state()->CopyFrom(net_state);
     LOG(INFO)
         << "Creating test net (#" << i << ") specified by " << sources[i];
-    test_nets_[i].reset(new Net<Dtype>(net_params[i]));
+    test_nets_[i].reset(new Net<Dtype>(net_params[i], net_));
     test_nets_[i]->set_debug_info(param_.debug_info());
     for (int w_idx = 0; w_idx < param_.weights_size(); ++w_idx) {
       LoadNetWeights(test_nets_[i], param_.weights(w_idx));

@@ -2,6 +2,7 @@
 #define CAFFE_NET_HPP_
 
 #include <map>
+#include <boost/unordered_map.hpp>
 #include <set>
 #include <string>
 #include <utility>
@@ -24,12 +25,13 @@ template <typename Dtype>
 class Net {
  public:
   explicit Net(const NetParameter& param);
+  explicit Net(const NetParameter& param, shared_ptr<Net<Dtype> > shared_net);
   explicit Net(const string& param_file, Phase phase,
       const int level = 0, const vector<string>* stages = NULL);
   virtual ~Net() {}
 
   /// @brief Initialize a network with a NetParameter.
-  void Init(const NetParameter& param);
+  void Init(const NetParameter& param, shared_ptr<Net<Dtype> > shared_net);
 
   /**
    * @brief Run Forward and return the result.
@@ -255,6 +257,8 @@ class Net {
  protected:
   // Helpers for Init.
   /// @brief Append a new top blob to the net.
+  void MemoryOptimize_v2();
+
   void AppendTop(const NetParameter& param, const int layer_id,
                  const int top_id, set<string>* available_blobs,
                  map<string, int>* blob_name_to_idx);
@@ -335,6 +339,12 @@ class Net {
   vector<Callback*> after_forward_;
   vector<Callback*> before_backward_;
   vector<Callback*> after_backward_;
+
+  /// Memory optimization related stuff.
+  bool optimize_memory_;
+  vector< shared_ptr<SyncedMemory> > shared_storage_;
+  std::set<string> excluded_blob_names_;
+
 
 DISABLE_COPY_AND_ASSIGN(Net);
 };

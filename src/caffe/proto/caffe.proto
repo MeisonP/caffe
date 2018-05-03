@@ -93,7 +93,28 @@ message NetParameter {
 
   // DEPRECATED: use 'layer' instead.
   repeated V1LayerParameter layers = 2;
+
+  // The configuration of memory optimization
+  optional MemoryOptimizationParameter mem_param = 1055;
 }
+
+message BNParameter {
+  optional FillerParameter slope_filler = 1;
+  optional FillerParameter bias_filler = 2;
+  optional float momentum = 3 [default = 0.9];
+  optional float eps = 4 [default = 1e-5];
+  // If true, will use the moving average mean and std for training and test.
+  // Will override the lr_param and freeze all the parameters.
+  // Make sure to initialize the layer properly with pretrained parameters.
+  optional bool frozen = 5 [default = false];
+  enum Engine {
+    DEFAULT = 0;
+    CAFFE = 1;
+    CUDNN = 2;
+  }
+  optional Engine engine = 6 [default = DEFAULT];
+}
+
 
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
@@ -448,7 +469,29 @@ message LayerParameter {
   optional CtcLossParameter ctc_loss_param = 1053;
   optional LabelsequenceAccuracyParameter labelsequence_accuracy_param = 1054;
 
+  optional BNParameter bn_param = 1055;
+
+
+
+
 }
+
+message MemoryOptimizationParameter {
+  // Mode of optimization
+
+  // whether to optimize for all nets specified in train phase
+  optional bool optimize_train = 1 [default = true];
+
+  // whether to optimize for all nets specified in test phase
+  optional bool optimize_test = 2 [default = false];
+
+  // By default, all blobs for input and output are excluded from the optimization for safety.
+  // However, one can also claim a few blobs to be excluded.
+  // This is rather helpful when extracting features from intermediate blobs or debugging problems.
+  repeated string exclude_blob = 3;
+
+}
+
 
 message UpsampleParameter {
   enum Type {

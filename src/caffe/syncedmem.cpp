@@ -152,6 +152,35 @@ void* SyncedMemory::mutable_gpu_data() {
 #endif
 }
 
+void SyncedMemory::Resize(size_t new_size) {
+  if (new_size <= size_){
+    // do nothing if the new size requirement is already fulfilled
+    return;
+  }else{
+    // we need to enlarge the underlying memory
+    // For this we just discard currently allocated memory blocks and set the new size
+    size_ = new_size;
+    head_ = UNINITIALIZED;
+
+    if (cpu_ptr_ && own_cpu_data_) {
+      CaffeFreeHost(cpu_ptr_, cpu_malloc_use_cuda_);
+    }
+    cpu_ptr_ = NULL;
+
+#ifndef CPU_ONLY
+    if (gpu_ptr_ && own_gpu_data_) {
+      CUDA_CHECK(cudaFree(gpu_ptr_));
+    }
+    gpu_ptr_ = NULL;
+    own_gpu_data_ = false;
+#endif  // CPU_ONLY
+
+    own_cpu_data_ = false;
+
+  }
+}
+
+
 #ifndef CPU_ONLY
 void SyncedMemory::async_gpu_push(const cudaStream_t& stream) {
   check_device();
