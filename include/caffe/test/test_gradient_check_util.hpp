@@ -41,7 +41,7 @@ class GradientChecker {
 
   void
   CheckGradientExhaustive(LayerBase* layer, const vector<Blob*>& bottom, const vector<Blob*>& top,
-      int check_bottom = -1);
+      int check_bottom = -1, bool exclude_learnable_blob=false);
 
   // CheckGradientEltwise can be used to test layers that perform element-wise
   // computation only (e.g., neuron layers) -- where (d y_i) / (d x_j) = 0 when
@@ -54,7 +54,7 @@ class GradientChecker {
   // If check_bottom == -1, check everything -- all bottom Blobs and all
   // param Blobs.  Otherwise (if check_bottom < -1), check only param Blobs.
   void CheckGradientSingle(LayerBase* layer, const vector<Blob*>& bottom, const vector<Blob*>& top,
-      int check_bottom, int top_id, int top_data_id, bool element_wise = false);
+      int check_bottom, int top_id, int top_data_id, bool element_wise = false, bool exclude_learnable_blob=false);
 
   // Checks the gradient of a network. This network should not have any data
   // layers or loss layers, since the function does not explicitly deal with
@@ -72,7 +72,7 @@ class GradientChecker {
 
 template<typename Dtype>
 void GradientChecker<Dtype>::CheckGradientSingle(LayerBase* layer, const vector<Blob*>& bottom,
-    const vector<Blob*>& top, int check_bottom, int top_id, int top_data_id, bool element_wise) {
+    const vector<Blob*>& top, int check_bottom, int top_id, int top_data_id, bool element_wise, bool exclude_learnable_blob) {
   if (element_wise) {
     CHECK_EQ(0, layer->blobs().size());
     CHECK_LE(0, top_id);
@@ -87,10 +87,12 @@ void GradientChecker<Dtype>::CheckGradientSingle(LayerBase* layer, const vector<
   // parameter blobs.
   vector<Blob*> blobs_to_check;
   vector<bool> propagate_down(bottom.size(), check_bottom == -1);
-  for (int i = 0; i < layer->blobs().size(); ++i) {
-    Blob* blob = layer->blobs()[i].get();
-    blob->set_diff(0.F);
-    blobs_to_check.push_back(blob);
+  if (!exclude_learnable_blob) {
+    for (int i = 0; i < layer->blobs().size(); ++i) {
+      Blob* blob = layer->blobs()[i].get();
+      blob->set_diff(0.F);
+      blobs_to_check.push_back(blob);
+    }
   }
   if (check_bottom == -1) {
     for (int i = 0; i < bottom.size(); ++i) {
@@ -176,12 +178,12 @@ void GradientChecker<Dtype>::CheckGradientSingle(LayerBase* layer, const vector<
 
 template<typename Dtype>
 void GradientChecker<Dtype>::CheckGradientExhaustive(LayerBase* layer, const vector<Blob*>& bottom,
-    const vector<Blob*>& top, int check_bottom) {
+    const vector<Blob*>& top, int check_bottom, bool exclude_learnable_blob) {
   layer->SetUp(bottom, top);
   CHECK_GT(top.size(), 0) << "Exhaustive mode requires at least one top blob.";
   for (int i = 0; i < top.size(); ++i) {
     for (int j = 0; j < top[i]->count(); ++j) {
-      CheckGradientSingle(layer, bottom, top, check_bottom, i, j);
+      CheckGradientSingle(layer, bottom, top, check_bottom, i, j, false, exclude_learnable_blob);
     }
   }
 }
