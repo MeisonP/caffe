@@ -7,7 +7,8 @@ def param_name_dict():
     # get all parameter names (typically underscore case) and corresponding
     # type names (typically camel case), which contain the layer names
     # (note that not all parameters correspond to layers, but we'll ignore that)
-    param_names = [s for s in dir(layer) if s.endswith('_param')]
+    #  param_names = [s for s in dir(layer) if s.endswith('_param')]
+    param_names = [s.name for s in layer.DESCRIPTOR.fields if s.name.endswith('_param')]
     param_type_names = [type(getattr(layer, s)).__name__ for s in param_names]
     # strip the final '_param' or 'Parameter'
     param_names = [s[:-len('_param')] for s in param_names]
