@@ -255,6 +255,12 @@ message SolverParameter {
   // weights parameter separated by ',' (like in a command string) or
   // in repeated weights parameters separately.
   repeated string weights = 42;
+
+  // AMSGRAD
+  optional bool amsgrad = 43 [default=false];
+
+  // Partial ADAM
+  optional float partial = 44 [default=0.5];
 }
 
 // A message that stores the solver snapshots

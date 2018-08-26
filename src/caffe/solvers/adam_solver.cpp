@@ -9,17 +9,21 @@ void AdamSolver<Dtype>::AdamPreSolve() {
   // Add the extra history entries for Adam after those from
   // SGDSolver::PreSolve
   const vector<Blob<Dtype>*>& net_params = this->net_->learnable_params();
-  for (int i = 0; i < net_params.size(); ++i) {
-    const vector<int>& shape = net_params[i]->shape();
-    this->history_.push_back(
-            shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
+  const bool amsgrad = this->param_.amsgrad();
+  int loop = amsgrad? 2 : 1;
+  for (int k = 0; k < loop; k++) {
+    for (int i = 0; i < net_params.size(); ++i) {
+      const vector<int>& shape = net_params[i]->shape();
+      this->history_.push_back(
+              shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
+    }
   }
 }
 
 #ifndef CPU_ONLY
 template <typename Dtype>
-void adam_update_gpu(int N, Dtype* g, Dtype* m, Dtype* v, Dtype beta1,
-    Dtype beta2, Dtype eps_hat, Dtype corrected_local_rate);
+void adam_update_gpu(int N, Dtype* g, Dtype* m, Dtype* v, Blob<Dtype> *max_v, Dtype beta1,
+    Dtype beta2, Dtype eps_hat, Dtype corrected_local_rate, float partial);
 #endif
 
 template <typename Dtype>
@@ -35,12 +39,18 @@ void AdamSolver<Dtype>::ComputeUpdateValue(int param_id, Dtype rate) {
   Blob<Dtype>* val_m = this->history_[param_id].get();
   Blob<Dtype>* val_v = this->history_[param_id + update_history_offset].get();
   Blob<Dtype>* val_t = this->temp_[param_id].get();
+  const bool amsgrad = this->param_.amsgrad();
+  Blob<Dtype>* max_v = NULL;
+  if (amsgrad) {
+    max_v = this->history_[param_id + update_history_offset * 2].get();
+  }
 
   const int t = this->iter_ + 1;
   const Dtype correction = std::sqrt(Dtype(1) - pow(beta2, t)) /
       (Dtype(1.) - pow(beta1, t));
   const int N = net_params[param_id]->count();
   const Dtype eps_hat = this->param_.delta();
+  const float partial = this->param_.partial();
 
   switch (Caffe::mode()) {
     case Caffe::CPU: {
@@ -59,10 +69,18 @@ void AdamSolver<Dtype>::ComputeUpdateValue(int param_id, Dtype rate) {
         val_v->mutable_cpu_data());
 
     // set update
-    caffe_powx(N,
-        val_v->cpu_data(), Dtype(0.5),
-        val_t->mutable_cpu_data());
-    caffe_add_scalar(N, eps_hat, val_t->mutable_cpu_data());
+    if (amsgrad) {
+      caffe_cpu_max(N, val_v->cpu_data(), max_v->cpu_data(), max_v->mutable_cpu_data());
+      caffe_powx(N,
+          max_v->cpu_data(), Dtype(partial),
+          val_t->mutable_cpu_data());
+      caffe_add_scalar(N, eps_hat, val_t->mutable_cpu_data());
+    } else {
+      caffe_powx(N,
+          val_v->cpu_data(), Dtype(partial),
+          val_t->mutable_cpu_data());
+      caffe_add_scalar(N, eps_hat, val_t->mutable_cpu_data());
+    }
     caffe_div(N,
         val_m->cpu_data(),
         val_t->cpu_data(),
@@ -76,8 +94,8 @@ void AdamSolver<Dtype>::ComputeUpdateValue(int param_id, Dtype rate) {
   case Caffe::GPU: {
 #ifndef CPU_ONLY
     adam_update_gpu(N, net_params[param_id]->mutable_gpu_diff(),
-        val_m->mutable_gpu_data(), val_v->mutable_gpu_data(), beta1, beta2,
-        eps_hat, local_rate*correction);
+        val_m->mutable_gpu_data(), val_v->mutable_gpu_data(), max_v, beta1, beta2,
+        eps_hat, local_rate*correction, partial);
 #else
     NO_GPU;
 #endif

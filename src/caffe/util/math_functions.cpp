@@ -9,6 +9,19 @@
 
 namespace caffe {
 
+template <typename Dtype>
+void caffe_cpu_max(const int n, const Dtype* x, const Dtype *y, Dtype* z) {
+  for (int i = 0; i < n; i++) {
+    z[i] = (x[i] > y[i])? x[i] : y[i];
+  }
+}
+
+template
+void caffe_cpu_max<float>(const int n, const float* x, const float *y, float* z);
+
+template
+void caffe_cpu_max<double>(const int n, const double* x, const double *y, double* z);
+
 template<>
 void caffe_cpu_gemm<float>(const CBLAS_TRANSPOSE TransA,
     const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
